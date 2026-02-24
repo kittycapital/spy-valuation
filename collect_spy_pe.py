@@ -61,14 +61,18 @@ def download_file(url, dest):
 def parse_xls_basic(filepath):
     """
     Parse old-format .xls (BIFF8) to extract Shiller data.
-    Uses subprocess with libreoffice or falls back to basic parsing.
+    Tries xlrd first, then libreoffice+openpyxl fallback.
     """
+    # Try xlrd (works in GitHub Actions)
+    try:
+        import xlrd
+        return parse_xls_xlrd(filepath)
+    except ImportError:
+        pass
+
+    # Try libreoffice conversion (works locally)
     import subprocess
-
-    csv_path = filepath.with_suffix(".csv")
     xlsx_path = filepath.with_suffix(".xlsx")
-
-    # Try libreoffice conversion
     try:
         subprocess.run(
             ["libreoffice", "--headless", "--convert-to", "xlsx",
@@ -80,13 +84,57 @@ def parse_xls_basic(filepath):
     except Exception as e:
         print(f"  LibreOffice conversion failed: {e}")
 
-    # Fallback: try to parse from existing CSV if available
+    # Fallback: existing CSV
     csv_fallback = DATA_DIR / "shiller_data.csv"
     if csv_fallback.exists():
         print("  Using existing shiller_data.csv")
         return parse_shiller_csv(csv_fallback)
 
     return None
+
+
+def parse_xls_xlrd(filepath):
+    """Parse xls file using xlrd."""
+    import xlrd
+    wb = xlrd.open_workbook(str(filepath))
+    ws = wb.sheet_by_name("Data")
+
+    data = []
+    for r in range(8, ws.nrows):
+        date_val = ws.cell_value(r, 0)
+        price = ws.cell_value(r, 1)
+        earnings = ws.cell_value(r, 3)
+        cape = ws.cell_value(r, 12)
+
+        if not date_val or not price:
+            continue
+        if not isinstance(date_val, (int, float)):
+            continue
+
+        year = int(date_val)
+        month = round((date_val - year) * 100)
+        if month == 0:
+            month = 1
+        date_str = f"{year}-{month:02d}"
+
+        trailing_pe = None
+        if isinstance(earnings, (int, float)) and earnings > 0:
+            trailing_pe = round(price / earnings, 2)
+
+        cape_val = None
+        if isinstance(cape, (int, float)):
+            cape_val = round(cape, 2)
+
+        data.append({
+            "date": date_str,
+            "sp500": round(price, 2),
+            "earnings": round(earnings, 4) if isinstance(earnings, (int, float)) else None,
+            "cape": cape_val,
+            "trailing_pe": trailing_pe,
+        })
+
+    print(f"  Parsed {len(data)} monthly records from Shiller data (xlrd)")
+    return data
 
 
 def parse_xlsx(filepath):
