@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>SPY 밸류에이션 대시보드 | Herdvibe</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.1.0/dist/chartjs-plugin-annotation.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://t1.kakaocdn.net/kakao_js_sdk/2.7.1/kakao.min.js" crossorigin="anonymous" async></script>
+<style>
+:root{--hv-primary:#3b82f6;--hv-primary-light:#60a5fa;--hv-primary-dark:#2563eb;--hv-primary-glow:rgba(59,130,246,0.12);--hv-up:#22c55e;--hv-up-bg:rgba(34,197,94,0.1);--hv-down:#ef4444;--hv-down-bg:rgba(239,68,68,0.1);--hv-warning:#f59e0b;--hv-warning-bg:rgba(245,158,11,0.1);--hv-neutral:#6b7280;--hv-bg-base:#000;--hv-bg-surface:#0a0a0a;--hv-bg-card:#111;--hv-bg-card-hover:#181818;--hv-bg-elevated:#1a1a1a;--hv-text-primary:#e5e5e5;--hv-text-secondary:#8a8a8a;--hv-text-tertiary:#555;--hv-text-muted:#3a3a3a;--hv-border:rgba(255,255,255,0.06);--hv-border-strong:rgba(255,255,255,0.12);--hv-font-display:'Plus Jakarta Sans',sans-serif;--hv-font-body:'Noto Sans KR',-apple-system,BlinkMacSystemFont,sans-serif;--hv-font-mono:'JetBrains Mono','SF Mono',monospace;--hv-space-xs:8px;--hv-space-sm:12px;--hv-space-md:16px;--hv-space-lg:24px;--hv-space-xl:32px;--hv-radius-sm:6px;--hv-radius-md:10px;--hv-radius-lg:14px;--hv-shadow-sm:0 1px 3px rgba(0,0,0,.5);--hv-shadow-md:0 4px 12px rgba(0,0,0,.6);--hv-shadow-lg:0 8px 32px rgba(0,0,0,.7);--hv-transition-fast:150ms ease;--hv-transition:250ms ease;--hv-max-width:960px;--hv-header-height:60px;--cl-cape:#818cf8;--cl-pe:#fbbf24;--cl-spy:#3b82f6;--cl-cheap:#22c55e;--cl-fair:#6b7280;--cl-expensive:#f59e0b;--cl-bubble:#ef4444}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}html{font-size:16px;scroll-behavior:smooth;-webkit-font-smoothing:antialiased;-webkit-text-size-adjust:100%;overflow-x:hidden}body{font-family:var(--hv-font-body);background:var(--hv-bg-base);color:var(--hv-text-primary);line-height:1.6;min-height:100vh;overflow-x:hidden}::selection{background:var(--hv-primary);color:#fff}::-webkit-scrollbar{width:5px;height:5px}::-webkit-scrollbar-track{background:var(--hv-bg-base)}::-webkit-scrollbar-thumb{background:#333;border-radius:3px}
+
+.hv-header{position:sticky;top:0;z-index:100;height:var(--hv-header-height);background:rgba(0,0,0,.9);backdrop-filter:blur(20px) saturate(180%);-webkit-backdrop-filter:blur(20px) saturate(180%);border-bottom:1px solid var(--hv-border);display:flex;align-items:center;padding:0 var(--hv-space-lg)}.hv-header-inner{width:100%;max-width:var(--hv-max-width);margin:0 auto;display:flex;align-items:center;justify-content:center;position:relative}.hv-header-center{display:flex;flex-direction:column;align-items:center;text-align:center}.hv-header-center h1{font-family:var(--hv-font-display);font-size:1.3rem;font-weight:600;color:var(--hv-text-primary);white-space:nowrap}.hv-header-category{font-size:.7rem;color:var(--hv-text-tertiary);font-weight:500;text-transform:uppercase;letter-spacing:.08em}.hv-header-right{position:absolute;right:0;display:flex;align-items:center;gap:var(--hv-space-xs)}.hv-update-badge{font-family:var(--hv-font-mono);font-size:.688rem;color:var(--hv-text-tertiary);white-space:nowrap;display:flex;align-items:center;gap:6px}.hv-live-dot{width:5px;height:5px;background:var(--hv-up);border-radius:50%;animation:pulse 2s infinite}@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.hv-page{max-width:var(--hv-max-width);margin:0 auto;padding:var(--hv-space-lg)}
+.hv-card{background:var(--hv-bg-card);border:1px solid var(--hv-border);border-radius:var(--hv-radius-lg);overflow:hidden;margin-bottom:var(--hv-space-lg)}.hv-card-head{display:flex;align-items:center;justify-content:space-between;padding:14px var(--hv-space-lg);border-bottom:1px solid var(--hv-border);flex-wrap:wrap;gap:var(--hv-space-xs)}.hv-card-head h2{font-size:.875rem;font-weight:600;color:var(--hv-text-primary)}.hv-card-body{padding:var(--hv-space-lg)}
+.summary-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:var(--hv-space-lg)}.summary-card{background:var(--hv-bg-card);border:1px solid var(--hv-border);border-radius:var(--hv-radius-lg);padding:var(--hv-space-lg)}.summary-label{font-size:.72rem;color:var(--hv-text-tertiary);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;font-weight:500}.summary-value{font-family:var(--hv-font-mono);font-size:1.6rem;font-weight:700;line-height:1.2}.summary-sub{font-family:var(--hv-font-mono);font-size:.75rem;color:var(--hv-text-muted);margin-top:4px}
+.filter-tabs{display:flex;gap:4px;background:var(--hv-bg-card);border:1px solid var(--hv-border);border-radius:12px;padding:4px;max-width:400px;margin-left:auto;margin-right:auto;margin-bottom:var(--hv-space-lg)}.filter-tab{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:10px 8px;border-radius:9px;border:none;background:transparent;color:var(--hv-text-secondary);font-family:var(--hv-font-body);font-size:.82rem;font-weight:500;cursor:pointer;transition:all .2s ease;-webkit-tap-highlight-color:transparent}.filter-tab:hover{color:var(--hv-text-primary);background:rgba(255,255,255,.03)}.filter-tab.active{background:var(--hv-bg-elevated);color:var(--hv-text-primary);font-weight:600}
+.tf-tabs{display:flex;gap:3px;background:var(--hv-bg-base);border-radius:8px;padding:3px}.tf-tab{padding:5px 12px;border-radius:6px;border:none;background:transparent;color:var(--hv-text-muted);font-family:var(--hv-font-body);font-size:.72rem;font-weight:500;cursor:pointer;transition:all .15s ease}.tf-tab:hover{color:var(--hv-text-secondary)}.tf-tab.active{background:var(--hv-bg-elevated);color:var(--hv-text-primary);font-weight:600}
+.chart-wrap{position:relative;height:400px;padding:var(--hv-space-md) var(--hv-space-lg)}.chart-wrap canvas{width:100%!important}
+.chart-legend{display:flex;align-items:center;gap:16px;padding:8px var(--hv-space-lg);flex-wrap:wrap}.legend-item{display:flex;align-items:center;gap:6px;font-family:var(--hv-font-mono);font-size:.72rem;color:var(--hv-text-secondary)}.legend-dot{width:8px;height:8px;border-radius:2px}
+
+/* RETURNS TABLE */
+.returns-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}.returns-cell{background:var(--hv-bg-card);border:1px solid var(--hv-border);border-radius:var(--hv-radius-md);padding:12px;text-align:center}.returns-cell.header{background:var(--hv-bg-elevated);border-color:var(--hv-border-strong)}.returns-label{font-size:.7rem;color:var(--hv-text-tertiary);margin-bottom:4px;font-weight:500}.returns-value{font-family:var(--hv-font-mono);font-size:1.1rem;font-weight:700}.returns-sub{font-family:var(--hv-font-mono);font-size:.65rem;color:var(--hv-text-muted);margin-top:2px}
+
+/* PERCENTILE BAR */
+.pctl-bar{position:relative;height:8px;background:linear-gradient(to right,var(--cl-cheap),var(--cl-fair),var(--cl-expensive),var(--cl-bubble));border-radius:4px;margin:12px 0 4px}.pctl-marker{position:absolute;top:-4px;width:3px;height:16px;background:#fff;border-radius:2px;transform:translateX(-50%)}.pctl-labels{display:flex;justify-content:space-between;font-size:.6rem;color:var(--hv-text-muted);font-family:var(--hv-font-mono)}
+
+.share-bar{display:flex;align-items:center;justify-content:space-between;padding:12px var(--hv-space-lg);border-top:1px solid var(--hv-border);background:var(--hv-bg-surface)}.share-bar-preview{font-size:.75rem;color:var(--hv-text-tertiary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:50%;line-height:1.4;font-family:var(--hv-font-mono)}.share-bar-preview span{color:var(--hv-text-secondary);font-weight:500}.share-bar-buttons{display:flex;align-items:center;gap:6px;flex-shrink:0}.share-btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:6px;font-size:.75rem;font-weight:600;font-family:var(--hv-font-body);cursor:pointer;transition:all var(--hv-transition-fast);border:1px solid var(--hv-border-strong);background:var(--hv-bg-card);color:#999;white-space:nowrap}.share-btn:hover{transform:translateY(-1px);box-shadow:var(--hv-shadow-sm);color:var(--hv-text-primary)}.share-btn--x:hover{border-color:#fff;color:#fff;background:#111}.share-btn--kakao:hover{border-color:#FEE500;color:#191919;background:#FEE500}.share-btn--tg:hover{border-color:#26A5E4;color:#fff;background:rgba(38,165,228,.15)}.share-btn--ig:hover{border-color:#E4405F;color:#fff;background:rgba(228,64,95,.15)}.share-btn--copy:hover{border-color:var(--hv-primary);color:var(--hv-primary-light);background:var(--hv-primary-glow)}
+.inline-share{display:flex;align-items:center;justify-content:center;gap:6px;padding:12px 0;border-top:1px solid var(--hv-border)}.inline-share .lbl{font-size:10px;color:var(--hv-text-muted);margin-right:4px}.inline-share .share-btn{padding:6px 10px}
+.toast-wrap{position:fixed;bottom:20px;right:20px;z-index:200;display:flex;flex-direction:column;gap:8px}.toast{background:var(--hv-bg-elevated);border:1px solid var(--hv-border-strong);border-radius:var(--hv-radius-md);padding:10px 18px;font-size:.788rem;color:var(--hv-text-primary);box-shadow:var(--hv-shadow-lg);animation:toastIn .3s ease;border-left:3px solid var(--hv-up)}@keyframes toastIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+.sample-banner{background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);border-radius:var(--hv-radius-md);padding:10px var(--hv-space-lg);margin-bottom:var(--hv-space-lg);font-size:.78rem;color:var(--cl-pe);display:none}
+.hidden{display:none!important}
+@media(max-width:768px){:root{--hv-header-height:52px}.hv-page{padding:var(--hv-space-md)}.hv-header{padding:0 var(--hv-space-md)}.hv-update-badge{display:none}.hv-header-center h1{font-size:1.1rem}.chart-wrap{height:300px}.summary-grid{grid-template-columns:repeat(3,1fr);gap:8px}.summary-value{font-size:1.3rem}.returns-grid{grid-template-columns:repeat(5,1fr);gap:4px}.returns-cell{padding:8px 4px}.returns-value{font-size:.9rem}.share-bar{flex-direction:column;gap:10px;align-items:stretch}.share-bar-preview{max-width:100%}.share-bar-buttons{justify-content:center;flex-wrap:wrap}.share-btn span.label-text{display:none}.share-btn{padding:8px 10px}.inline-share .lbl{display:none}}
+@media(max-width:520px){.hv-page{padding:12px 10px 24px}.chart-wrap{height:260px}.hv-card-head{padding:12px 14px}.summary-card{padding:14px}.summary-value{font-size:1.1rem}.summary-grid{gap:6px}.filter-tabs{max-width:100%}.filter-tab{font-size:.78rem;padding:8px 4px}.returns-grid{grid-template-columns:repeat(5,1fr);gap:3px}.returns-cell{padding:6px 2px}.returns-value{font-size:.78rem}.returns-label{font-size:.6rem}.returns-sub{font-size:.55rem}}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="hv-header">
+  <div class="hv-header-inner">
+    <div class="hv-header-center">
+      <h1>📊 SPY 밸류에이션 대시보드</h1>
+      <span class="hv-header-category">S&P 500 HISTORICAL P/E & CAPE RATIO</span>
+    </div>
+    <div class="hv-header-right">
+      <div class="hv-update-badge" id="updateBadge"><span class="hv-live-dot"></span><span></span></div>
+    </div>
+  </div>
+</header>
+
+<div class="hv-page">
+
+  <div class="sample-banner" id="sampleBanner">⚠️ 샘플 데이터 표시 중 · <code style="font-size:.72rem">python collect_spy_pe.py --full</code> 실행하여 실제 데이터를 수집하세요</div>
+
+  <!-- DISCLAIMER -->
+  <div style="background:rgba(59,130,246,.06);border:1px solid rgba(59,130,246,.15);border-radius:var(--hv-radius-md);padding:10px var(--hv-space-lg);margin-bottom:var(--hv-space-lg);font-size:.75rem;color:var(--hv-text-secondary);line-height:1.7">
+    ℹ️ Robert Shiller 교수의 공개 데이터를 기반으로 S&P 500의 역사적 밸류에이션을 시각화합니다. <strong style="color:var(--hv-text-primary)">CAPE(경기조정 P/E)</strong>는 10년 평균 실질 이익 기준, <strong style="color:var(--hv-text-primary)">Trailing P/E</strong>는 최근 12개월 이익 기준입니다. 투자 판단의 유일한 근거로 사용하지 마세요.
+  </div>
+
+  <!-- SUMMARY CARDS -->
+  <div class="summary-grid">
+    <div class="summary-card">
+      <div class="summary-label" style="color:#a5b4fc" id="peLabel">SHILLER CAPE</div>
+      <div class="summary-value" style="color:var(--cl-cape)" id="peValue">—</div>
+      <div class="summary-sub" id="peDate"></div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-label" style="color:#fcd34d">역사적 백분위</div>
+      <div class="summary-value" id="pctlValue" style="color:var(--cl-expensive)">—</div>
+      <div class="pctl-bar"><div class="pctl-marker" id="pctlMarker" style="left:50%"></div></div>
+      <div class="pctl-labels"><span>저평가</span><span>고평가</span></div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-label" style="color:#93c5fd">현재 SPY 가격</div>
+      <div class="summary-value" style="color:var(--cl-spy)" id="spyValue">—</div>
+      <div class="summary-sub" id="spyDate"></div>
+    </div>
+  </div>
+
+  <!-- METRIC TABS -->
+  <div class="filter-tabs" id="metricTabs">
+    <button class="filter-tab active" data-metric="cape" onclick="setMetric('cape',this)">📐 Shiller CAPE</button>
+    <button class="filter-tab" data-metric="pe" onclick="setMetric('pe',this)">📈 Trailing P/E</button>
+  </div>
+
+  <!-- MAIN CHART -->
+  <div class="hv-card">
+    <div class="hv-card-head">
+      <h2 id="chartTitle">S&P 500 가격 · Shiller CAPE</h2>
+      <div class="tf-tabs" id="rangeTabs">
+        <button class="tf-tab" data-range="1200" onclick="setRange(1200,this)">10Y</button>
+        <button class="tf-tab" data-range="600" onclick="setRange(600,this)">5Y</button>
+        <button class="tf-tab" data-range="360" onclick="setRange(360,this)">3Y</button>
+        <button class="tf-tab active" data-range="0" onclick="setRange(0,this)">ALL</button>
+      </div>
+    </div>
+    <div class="chart-legend">
+      <div class="legend-item"><span class="legend-dot" style="background:var(--cl-spy)"></span> S&P 500</div>
+      <div class="legend-item"><span class="legend-dot" style="background:var(--cl-cape)" id="legendPeDot"></span> <span id="legendPeLabel">CAPE</span></div>
+      <div class="legend-item"><span class="legend-dot" style="background:rgba(34,197,94,0.3)"></span> 저평가</div>
+      <div class="legend-item"><span class="legend-dot" style="background:rgba(245,158,11,0.3)"></span> 고평가</div>
+      <div class="legend-item"><span class="legend-dot" style="background:rgba(239,68,68,0.3)"></span> 과열</div>
+    </div>
+    <div class="chart-wrap"><canvas id="mainChart"></canvas></div>
+    <div class="inline-share" id="inlineShare1"></div>
+  </div>
+
+  <!-- FORWARD RETURNS -->
+  <div class="hv-card">
+    <div class="hv-card-head">
+      <h2>📉 CAPE 구간별 향후 10년 연평균 수익률</h2>
+    </div>
+    <div class="hv-card-body">
+      <div class="returns-grid" id="returnsGrid"></div>
+      <div style="margin-top:12px;font-size:.7rem;color:var(--hv-text-muted);line-height:1.6">
+        * 1881~현재 S&P 500 월간 데이터 기반. 과거 수익률이 미래를 보장하지 않습니다.
+      </div>
+    </div>
+    <div class="inline-share" id="inlineShare2"></div>
+  </div>
+
+  <!-- BOTTOM SHARE BAR -->
+  <div style="background:var(--hv-bg-card);border:1px solid var(--hv-border);border-radius:var(--hv-radius-lg);overflow:hidden">
+    <div class="share-bar" style="border-top:none">
+      <div class="share-bar-preview"><span>SPY 밸류에이션 대시보드</span> — herdvibe.com</div>
+      <div class="share-bar-buttons">
+        <button class="share-btn share-btn--x" onclick="doShare('twitter',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg><span class="label-text">트위터</span></button>
+        <button class="share-btn share-btn--kakao" onclick="doShare('kakao',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3C6.477 3 2 6.463 2 10.691c0 2.724 1.8 5.112 4.508 6.458l-1.148 4.265a.5.5 0 0 0 .764.533l4.94-3.26c.304.02.612.03.936.03 5.523 0 10-3.462 10-7.735C22 6.463 17.523 3 12 3z"/></svg><span class="label-text">카카오톡</span></button>
+        <button class="share-btn share-btn--tg" onclick="doShare('telegram',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.479.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg><span class="label-text">텔레그램</span></button>
+        <button class="share-btn share-btn--ig" onclick="doShare('instagram',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg><span class="label-text">인스타</span></button>
+        <button class="share-btn share-btn--copy" onclick="doShare('link',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg><span class="label-text">링크 복사</span></button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+/* ===== SHARE ===== */
+var SHARE_URL='https://herdvibe.com/98';
+var xI='<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>';
+var kI='<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3C6.477 3 2 6.463 2 10.691c0 2.724 1.8 5.112 4.508 6.458l-1.148 4.265a.5.5 0 0 0 .764.533l4.94-3.26c.304.02.612.03.936.03 5.523 0 10-3.462 10-7.735C22 6.463 17.523 3 12 3z"/></svg>';
+var tI='<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.479.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>';
+var lI='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>';
+var igI='<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>';
+function makeInlineShare(el){if(!el)return;el.innerHTML='<span class="lbl">공유</span><button class="share-btn share-btn--x" onclick="doShare(\'twitter\',this)">'+xI+'</button><button class="share-btn share-btn--kakao" onclick="doShare(\'kakao\',this)">'+kI+'</button><button class="share-btn share-btn--tg" onclick="doShare(\'telegram\',this)">'+tI+'</button><button class="share-btn share-btn--ig" onclick="doShare(\'instagram\',this)">'+igI+'</button><button class="share-btn share-btn--copy" onclick="doShare(\'link\',this)">'+lI+'</button>';}
+function ensureKakao(){try{if(typeof Kakao!=='undefined'&&!Kakao.isInitialized())Kakao.init('a43ed7b39fac35458f4f9df925a279b5');return typeof Kakao!=='undefined'&&Kakao.isInitialized();}catch(e){return false;}}
+ensureKakao();
+function kakaoShare(){if(!ensureKakao()){copyToClipboard(SHARE_URL);toast('링크 복사완료! 카카오톡에 붙여넣기 하세요');return;}try{Kakao.Share.sendDefault({objectType:'feed',content:{title:'📊 SPY 밸류에이션 대시보드',description:'S&P 500 Shiller CAPE & P/E — 지금 시장은 비싼가 싼가?',imageUrl:'https://raw.githubusercontent.com/kittycapital/kittycapital.github.io/main/assets/herdvibe-og.png',link:{mobileWebUrl:SHARE_URL,webUrl:SHARE_URL}},buttons:[{title:'대시보드 보기',link:{mobileWebUrl:SHARE_URL,webUrl:SHARE_URL}}]});}catch(e){copyToClipboard(SHARE_URL);toast('링크 복사완료!');}}
+function copyToClipboard(t){try{window.parent.postMessage({type:'clipboard',text:t},'*');}catch(e){}try{navigator.clipboard.writeText(t);}catch(e){}}
+function flashCopied(btn){if(!btn)return;var orig=btn.innerHTML;btn.style.background='#22c55e';btn.style.color='#fff';btn.style.borderColor='#22c55e';btn.innerHTML='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"><path d="M5 13l4 4L19 7"/></svg>';setTimeout(function(){btn.style.background='';btn.style.color='';btn.style.borderColor='';btn.innerHTML=orig;},2000);}
+function getShareText(){var v=document.getElementById('peValue').textContent;var p=document.getElementById('pctlValue').textContent;return'📊 SPY 밸류에이션 대시보드\n현재 CAPE: '+v+'\n역사적 백분위: '+p+'\n\n#SPY #SP500 #Valuation via herdvibe.com';}
+function doShare(p,btn){var u=SHARE_URL;var t=encodeURIComponent(getShareText());var eu=encodeURIComponent(u);switch(p){case'twitter':window.open('https://twitter.com/intent/tweet?text='+t+'&url='+eu,'_blank');break;case'telegram':window.open('https://t.me/share/url?url='+eu+'&text='+t,'_blank');break;case'kakao':kakaoShare();break;case'instagram':copyToClipboard(u);flashCopied(btn);toast('링크가 복사되었습니다 ✓');break;case'link':copyToClipboard(u);flashCopied(btn);toast('링크가 복사되었습니다 ✓');break;}}
+function toast(msg){var c=document.querySelector('.toast-wrap');if(!c){c=document.createElement('div');c.className='toast-wrap';document.body.appendChild(c);}var t=document.createElement('div');t.className='toast';t.textContent=msg;c.appendChild(t);setTimeout(function(){t.style.opacity='0';t.style.transform='translateY(12px)';t.style.transition='.3s';setTimeout(function(){t.remove();},300);},3000);}
+
+/* ===== WATERMARK ===== */
+var watermarkPlugin={id:'herdvibeWatermark',beforeDraw:function(chart){var ctx=chart.ctx,ca=chart.chartArea;if(!ca)return;ctx.save();ctx.font='700 42px "Plus Jakarta Sans",sans-serif';ctx.fillStyle='rgba(255,255,255,0.03)';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('Herdvibe.com',(ca.left+ca.right)/2,(ca.top+ca.bottom)/2);ctx.restore();}};
+
+/* ===== STATE ===== */
+var DATA=null,mainChart=null;
+var currentMetric='cape';
+var currentRange=0;
+Chart.defaults.color='#555';Chart.defaults.borderColor='rgba(255,255,255,0.06)';Chart.defaults.font.family="'Noto Sans KR',sans-serif";
+
+/* ===== SAMPLE DATA ===== */
+function generateSample(){
+  var shiller=[];
+  var base_cape=[15,14,16,18,20,22,25,30,28,20,15,18,22,28,32,44,27,25,22,18,14,16,20,25,28,26,22,20,24,28,32,30,28,26,30,34,38];
+  var base_pe=[12,11,13,15,17,19,22,26,24,17,12,15,18,24,28,38,23,21,18,15,11,13,17,21,24,22,18,17,20,24,28,26,24,22,26,30,34];
+  var sp=[18,17,20,30,45,60,80,120,90,50,35,40,60,90,140,300,200,150,120,80,60,70,100,180,350,500,400,350,500,800,1400,1200,1000,900,1200,2000,3000,4000,4500,5000,5500,6000];
+  for(var y=1900;y<=2025;y+=3){
+    var idx=Math.min(Math.floor((y-1900)/3.5),base_cape.length-1);
+    var noise=1+(Math.random()-0.5)*0.1;
+    shiller.push({date:y+'-01',sp500:Math.round(sp[idx]*noise*100)/100,cape:Math.round(base_cape[idx]*noise*100)/100,trailing_pe:Math.round(base_pe[idx]*noise*100)/100,earnings:null});
+    shiller.push({date:y+'-06',sp500:Math.round(sp[idx]*noise*1.02*100)/100,cape:Math.round(base_cape[idx]*noise*1.01*100)/100,trailing_pe:Math.round(base_pe[idx]*noise*1.01*100)/100,earnings:null});
+  }
+  var spy={};
+  for(var d=new Date(2000,0,1);d<=new Date();d=new Date(d.getTime()+86400000*7)){
+    var yr=(d.getFullYear()-2000);
+    var v=100*Math.exp(yr*0.07)*(1+Math.sin(yr*1.5)*0.15)*(1+(Math.random()-0.5)*0.03);
+    spy[d.toISOString().slice(0,10)]=Math.round(v*100)/100;
+  }
+  return{
+    shiller:shiller,spy_daily:spy,
+    summary:{latest_cape:36.2,latest_cape_date:'2025-01',cape_percentile:94.5,latest_pe:28.1,latest_pe_date:'2023-06',pe_percentile:88.2,latest_spy:600,latest_spy_date:'2026-02-05',cape_median:16.8,cape_mean:17.5,pe_median:15.2,pe_mean:16.1},
+    forward_returns:{'<15':{avg:10.3,min:2.1,max:18.5,count:280},'15-20':{avg:6.8,min:-1.2,max:14.1,count:350},'20-25':{avg:4.2,min:-3.5,max:11.8,count:180},'25-30':{avg:2.1,min:-5.8,max:8.2,count:90},'30+':{avg:0.5,min:-6.1,max:6.5,count:45}},
+    cape_bands:[{label:'매우 저평가',min:0,max:15,color:'rgba(34,197,94,0.08)',border:'rgba(34,197,94,0.3)'},{label:'저평가',min:15,max:20,color:'rgba(59,130,246,0.06)',border:'rgba(59,130,246,0.2)'},{label:'적정',min:20,max:25,color:'rgba(107,114,128,0.04)',border:'rgba(107,114,128,0.15)'},{label:'고평가',min:25,max:30,color:'rgba(245,158,11,0.06)',border:'rgba(245,158,11,0.2)'},{label:'과열',min:30,max:999,color:'rgba(239,68,68,0.06)',border:'rgba(239,68,68,0.2)'}],
+    pe_bands:[{label:'매우 저평가',min:0,max:12,color:'rgba(34,197,94,0.08)',border:'rgba(34,197,94,0.3)'},{label:'저평가',min:12,max:15,color:'rgba(59,130,246,0.06)',border:'rgba(59,130,246,0.2)'},{label:'적정',min:15,max:20,color:'rgba(107,114,128,0.04)',border:'rgba(107,114,128,0.15)'},{label:'고평가',min:20,max:25,color:'rgba(245,158,11,0.06)',border:'rgba(245,158,11,0.2)'},{label:'과열',min:25,max:999,color:'rgba(239,68,68,0.06)',border:'rgba(239,68,68,0.2)'}],
+    metadata:{generated_at:new Date().toISOString(),mode:'sample'}
+  };
+}
+
+/* ===== LOAD ===== */
+async function loadData(){
+  var data=null;
+  try{var r=await fetch('data/spy_valuation.json');if(r.ok)data=await r.json();}catch(e){}
+  if(!data){data=generateSample();document.getElementById('sampleBanner').style.display='block';}
+  DATA=data;
+  init();
+}
+
+/* ===== INIT ===== */
+function init(){
+  var ts=DATA.metadata?.generated_at;
+  if(ts){document.querySelector('#updateBadge span:last-child').textContent=ts.slice(0,16).replace('T',' ');}
+  updateCards();
+  renderChart();
+  renderReturns();
+  makeInlineShare(document.getElementById('inlineShare1'));
+  makeInlineShare(document.getElementById('inlineShare2'));
+  sendHeight();
+}
+
+/* ===== CARDS ===== */
+function updateCards(){
+  var s=DATA.summary;
+  if(currentMetric==='cape'){
+    document.getElementById('peLabel').textContent='SHILLER CAPE';
+    document.getElementById('peValue').textContent=s.latest_cape!==null?s.latest_cape.toFixed(1):'—';
+    document.getElementById('peDate').textContent=s.latest_cape_date||'';
+    document.getElementById('pctlValue').textContent=s.cape_percentile!==null?'상위 '+(100-s.cape_percentile).toFixed(1)+'%':'—';
+    document.getElementById('pctlMarker').style.left=(s.cape_percentile||50)+'%';
+    document.getElementById('peValue').style.color='var(--cl-cape)';
+    document.getElementById('peLabel').style.color='#a5b4fc';
+  } else {
+    document.getElementById('peLabel').textContent='TRAILING P/E';
+    document.getElementById('peValue').textContent=s.latest_pe!==null?s.latest_pe.toFixed(1):'—';
+    document.getElementById('peDate').textContent=s.latest_pe_date||'';
+    document.getElementById('pctlValue').textContent=s.pe_percentile!==null?'상위 '+(100-s.pe_percentile).toFixed(1)+'%':'—';
+    document.getElementById('pctlMarker').style.left=(s.pe_percentile||50)+'%';
+    document.getElementById('peValue').style.color='var(--cl-pe)';
+    document.getElementById('peLabel').style.color='#fcd34d';
+  }
+  // Pctl color
+  var pctl=currentMetric==='cape'?s.cape_percentile:s.pe_percentile;
+  var pc=document.getElementById('pctlValue');
+  if(pctl>90)pc.style.color='var(--cl-bubble)';
+  else if(pctl>75)pc.style.color='var(--cl-expensive)';
+  else if(pctl>50)pc.style.color='var(--hv-text-secondary)';
+  else pc.style.color='var(--cl-cheap)';
+  // SPY
+  document.getElementById('spyValue').textContent=s.latest_spy?'$'+s.latest_spy.toLocaleString():'—';
+  document.getElementById('spyDate').textContent=s.latest_spy_date||'';
+}
+
+/* ===== METRIC TAB ===== */
+function setMetric(m,btn){
+  currentMetric=m;
+  document.querySelectorAll('.filter-tab').forEach(function(b){b.classList.remove('active');});
+  btn.classList.add('active');
+  updateCards();
+  renderChart();
+}
+
+/* ===== RANGE ===== */
+function setRange(months,btn){
+  currentRange=months;
+  document.querySelectorAll('.tf-tab').forEach(function(b){b.classList.remove('active');});
+  btn.classList.add('active');
+  renderChart();
+}
+
+/* ===== MAIN CHART ===== */
+function renderChart(){
+  var isCape=currentMetric==='cape';
+  var peKey=isCape?'cape':'trailing_pe';
+  var peColor=isCape?'rgba(129,140,248,0.9)':'rgba(251,191,36,0.9)';
+  var peLabel=isCape?'Shiller CAPE':'Trailing P/E';
+  var bands=isCape?(DATA.cape_bands||[]):(DATA.pe_bands||[]);
+
+  document.getElementById('chartTitle').textContent='S&P 500 가격 · '+peLabel;
+  document.getElementById('legendPeLabel').textContent=isCape?'CAPE':'P/E';
+  document.getElementById('legendPeDot').style.background=isCape?'var(--cl-cape)':'var(--cl-pe)';
+
+  // Build data arrays from shiller monthly
+  var shiller=DATA.shiller||[];
+  var dates=[],sp500=[],peVals=[];
+  for(var i=0;i<shiller.length;i++){
+    var e=shiller[i];
+    if(e[peKey]===null||e[peKey]===undefined)continue;
+    dates.push(e.date);
+    sp500.push(e.sp500);
+    peVals.push(e[peKey]);
+  }
+
+  // Apply range filter
+  if(currentRange>0){
+    var cutoff=dates.length-currentRange;
+    if(cutoff>0){dates=dates.slice(cutoff);sp500=sp500.slice(cutoff);peVals=peVals.slice(cutoff);}
+  }
+
+  // Build annotation boxes for valuation bands
+  var annotations={};
+  bands.forEach(function(band,idx){
+    var maxVal=band.max===999?200:band.max;
+    annotations['band'+idx]={type:'box',yScaleID:'yPE',yMin:band.min,yMax:maxVal,backgroundColor:band.color,borderWidth:0,drawTime:'beforeDatasetsDraw'};
+  });
+  // Add horizontal lines at band boundaries
+  var boundaryVals=isCape?[15,20,25,30]:[12,15,20,25];
+  boundaryVals.forEach(function(v,idx){
+    annotations['line'+idx]={type:'line',yScaleID:'yPE',yMin:v,yMax:v,borderColor:'rgba(255,255,255,0.06)',borderWidth:1,borderDash:[4,4],drawTime:'beforeDatasetsDraw'};
+  });
+
+  var chartData={
+    labels:dates,
+    datasets:[
+      {label:'S&P 500',data:sp500,borderColor:'rgba(59,130,246,0.8)',backgroundColor:'rgba(59,130,246,0.05)',fill:true,pointRadius:0,borderWidth:1.5,tension:0.1,yAxisID:'y',order:2},
+      {label:peLabel,data:peVals,borderColor:peColor,backgroundColor:'transparent',fill:false,pointRadius:0,borderWidth:2,tension:0.1,yAxisID:'yPE',order:1}
+    ]
+  };
+
+  var opts={
+    responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+    scales:{
+      x:{type:'category',ticks:{maxTicksLimit:10,font:{size:10},color:'#555'},grid:{display:false}},
+      y:{position:'left',title:{display:true,text:'S&P 500',color:'#555',font:{size:10}},ticks:{font:{size:10,family:'JetBrains Mono'},color:'#555',callback:function(v){return v>=1000?(v/1000).toFixed(0)+'K':v;}},grid:{color:'rgba(255,255,255,0.04)'}},
+      yPE:{position:'right',title:{display:true,text:peLabel,color:isCape?'#818cf8':'#fbbf24',font:{size:10}},ticks:{font:{size:10,family:'JetBrains Mono'},color:isCape?'#818cf8':'#fbbf24'},grid:{display:false},min:isCape?0:0,suggestedMax:isCape?50:45}
+    },
+    plugins:{
+      legend:{display:false},
+      annotation:{annotations:annotations},
+      tooltip:{backgroundColor:'rgba(0,0,0,.9)',titleColor:'#e5e5e5',bodyColor:'#aaa',borderColor:'rgba(255,255,255,.1)',borderWidth:1,padding:12,titleFont:{size:12,family:'JetBrains Mono'},bodyFont:{size:11,family:'JetBrains Mono'},
+        callbacks:{
+          title:function(ctx){return ctx[0].label;},
+          label:function(ctx){
+            if(ctx.datasetIndex===0)return'S&P 500: '+ctx.parsed.y.toLocaleString();
+            return peLabel+': '+ctx.parsed.y.toFixed(1);
+          }
+        }
+      }
+    }
+  };
+
+  if(mainChart){mainChart.destroy();}
+  var canvas=document.getElementById('mainChart');
+  mainChart=new Chart(canvas,{type:'line',data:chartData,options:opts,plugins:[watermarkPlugin]});
+}
+
+/* ===== RETURNS TABLE ===== */
+function renderReturns(){
+  var fr=DATA.forward_returns||{};
+  var bands=['<15','15-20','20-25','25-30','30+'];
+  var colors=['var(--cl-cheap)','var(--cl-spy)','var(--hv-text-secondary)','var(--cl-expensive)','var(--cl-bubble)'];
+  var html='';
+  bands.forEach(function(b,i){
+    var d=fr[b]||{avg:'-',min:'-',max:'-',count:0};
+    var avgStr=typeof d.avg==='number'?d.avg.toFixed(1)+'%':'-';
+    var rangeStr=typeof d.min==='number'?d.min.toFixed(1)+'~'+d.max.toFixed(1)+'%':'';
+    html+='<div class="returns-cell"><div class="returns-label" style="color:'+colors[i]+'">CAPE '+b+'</div><div class="returns-value" style="color:'+colors[i]+'">'+avgStr+'</div><div class="returns-sub">'+rangeStr+'</div></div>';
+  });
+  document.getElementById('returnsGrid').innerHTML=html;
+}
+
+/* ===== IFRAME RESIZE ===== */
+var _lastH=0,_ht;
+function sendHeight(){clearTimeout(_ht);_ht=setTimeout(function(){var h=document.body.offsetHeight;if(Math.abs(h-_lastH)>5){_lastH=h;window.parent.postMessage({type:'resize',height:h},'*');}},150);}
+loadData();
+sendHeight();window.addEventListener('resize',sendHeight);new MutationObserver(sendHeight).observe(document.body,{childList:true,subtree:true});
+var resizeTimer;window.addEventListener('resize',function(){clearTimeout(resizeTimer);resizeTimer=setTimeout(function(){if(DATA)renderChart();},250);});
+</script>
+</body>
+</html>
