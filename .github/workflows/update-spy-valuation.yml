@@ -1,0 +1,61 @@
+name: Update SPY Valuation
+
+on:
+  schedule:
+    - cron: '30 22 * * 1-5'  # Weekdays 22:30 UTC (after market close)
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Run mode'
+        required: true
+        default: 'auto'
+        type: choice
+        options:
+          - auto
+          - full
+          - repair
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install openpyxl
+
+      - name: Run data collection
+        env:
+          MODE: ${{ github.event.inputs.mode || 'auto' }}
+        run: |
+          if [ "$MODE" = "full" ] || [ "$MODE" = "repair" ]; then
+            python collect_spy_pe.py --full
+          elif [ "$MODE" = "auto" ]; then
+            if [ -f data/spy_valuation.json ]; then
+              python collect_spy_pe.py --update
+            else
+              python collect_spy_pe.py --full
+            fi
+          fi
+
+      - name: Weekly Shiller refresh (Sundays)
+        if: github.event.schedule && contains('0', github.event.schedule)
+        run: python collect_spy_pe.py --full
+        continue-on-error: true
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --staged --quiet || git commit -m "Update SPY valuation $(date -u +%Y-%m-%d)"
+          git push
