@@ -44,7 +44,7 @@
 <header class="hv-header">
   <div class="hv-header-inner">
     <div class="hv-header-center">
-      <h1>📊 SPY 밸류에이션 대시보드</h1>
+      <h1>SPY 밸류에이션 대시보드</h1>
       <span class="hv-header-category">S&P 500 HISTORICAL P/E & CAPE RATIO</span>
     </div>
     <div class="hv-header-right">
@@ -84,8 +84,8 @@
 
   <!-- METRIC TABS -->
   <div class="filter-tabs" id="metricTabs">
-    <button class="filter-tab active" data-metric="cape" onclick="setMetric('cape',this)">📐 Shiller CAPE</button>
-    <button class="filter-tab" data-metric="pe" onclick="setMetric('pe',this)">📈 Trailing P/E</button>
+    <button class="filter-tab active" data-metric="cape" onclick="setMetric('cape',this)">Shiller CAPE</button>
+    <button class="filter-tab" data-metric="pe" onclick="setMetric('pe',this)">Trailing P/E</button>
   </div>
 
   <!-- MAIN CHART -->
@@ -93,14 +93,15 @@
     <div class="hv-card-head">
       <h2 id="chartTitle">S&P 500 가격 · Shiller CAPE</h2>
       <div class="tf-tabs" id="rangeTabs">
-        <button class="tf-tab" data-range="1200" onclick="setRange(1200,this)">10Y</button>
-        <button class="tf-tab" data-range="600" onclick="setRange(600,this)">5Y</button>
-        <button class="tf-tab" data-range="360" onclick="setRange(360,this)">3Y</button>
+        <button class="tf-tab" data-range="12" onclick="setRange(12,this)">1Y</button>
+        <button class="tf-tab" data-range="36" onclick="setRange(36,this)">3Y</button>
+        <button class="tf-tab" data-range="60" onclick="setRange(60,this)">5Y</button>
+        <button class="tf-tab" data-range="120" onclick="setRange(120,this)">10Y</button>
         <button class="tf-tab active" data-range="0" onclick="setRange(0,this)">ALL</button>
       </div>
     </div>
     <div class="chart-legend">
-      <div class="legend-item"><span class="legend-dot" style="background:var(--cl-spy)"></span> S&P 500</div>
+      <div class="legend-item"><span class="legend-dot" style="background:var(--cl-spy)"></span> SPY</div>
       <div class="legend-item"><span class="legend-dot" style="background:var(--cl-cape)" id="legendPeDot"></span> <span id="legendPeLabel">CAPE</span></div>
       <div class="legend-item"><span class="legend-dot" style="background:rgba(34,197,94,0.3)"></span> 저평가</div>
       <div class="legend-item"><span class="legend-dot" style="background:rgba(245,158,11,0.3)"></span> 고평가</div>
@@ -113,7 +114,7 @@
   <!-- FORWARD RETURNS -->
   <div class="hv-card">
     <div class="hv-card-head">
-      <h2>📉 CAPE 구간별 향후 10년 연평균 수익률</h2>
+      <h2>CAPE 구간별 향후 10년 연평균 수익률</h2>
     </div>
     <div class="hv-card-body">
       <div class="returns-grid" id="returnsGrid"></div>
@@ -277,21 +278,46 @@ function renderChart(){
   document.getElementById('legendPeLabel').textContent=isCape?'CAPE':'P/E';
   document.getElementById('legendPeDot').style.background=isCape?'var(--cl-cape)':'var(--cl-pe)';
 
-  // Build data arrays from shiller monthly
+  // Build P/E lookup from shiller monthly data
+  var peLookup={};
   var shiller=DATA.shiller||[];
-  var dates=[],sp500=[],peVals=[];
   for(var i=0;i<shiller.length;i++){
     var e=shiller[i];
-    if(e[peKey]===null||e[peKey]===undefined)continue;
-    dates.push(e.date);
-    sp500.push(e.sp500);
-    peVals.push(e[peKey]);
+    if(e[peKey]!==null&&e[peKey]!==undefined){
+      peLookup[e.date]=e[peKey];
+    }
   }
 
-  // Apply range filter
+  // Use SPY daily as main timeline
+  var spyDaily=DATA.spy_daily||{};
+  var allDates=Object.keys(spyDaily).sort();
+
+  // Apply range filter (months from end)
   if(currentRange>0){
-    var cutoff=dates.length-currentRange;
-    if(cutoff>0){dates=dates.slice(cutoff);sp500=sp500.slice(cutoff);peVals=peVals.slice(cutoff);}
+    var cutDate=new Date();
+    cutDate.setMonth(cutDate.getMonth()-currentRange);
+    var cutStr=cutDate.toISOString().slice(0,10);
+    allDates=allDates.filter(function(d){return d>=cutStr;});
+  }
+
+  // Downsample for performance (max ~600 points)
+  var step=Math.max(1,Math.floor(allDates.length/600));
+  var dates=[],spyPrices=[],peVals=[];
+  for(var i=0;i<allDates.length;i+=step){
+    var d=allDates[i];
+    dates.push(d);
+    spyPrices.push(spyDaily[d]);
+    // Match PE by month (YYYY-MM)
+    var monthKey=d.slice(0,7);
+    peVals.push(peLookup[monthKey]!==undefined?peLookup[monthKey]:null);
+  }
+  // Always include last date
+  var lastD=allDates[allDates.length-1];
+  if(dates[dates.length-1]!==lastD){
+    dates.push(lastD);
+    spyPrices.push(spyDaily[lastD]);
+    var lm=lastD.slice(0,7);
+    peVals.push(peLookup[lm]!==undefined?peLookup[lm]:null);
   }
 
   // Build annotation boxes for valuation bands
@@ -300,7 +326,6 @@ function renderChart(){
     var maxVal=band.max===999?200:band.max;
     annotations['band'+idx]={type:'box',yScaleID:'yPE',yMin:band.min,yMax:maxVal,backgroundColor:band.color,borderWidth:0,drawTime:'beforeDatasetsDraw'};
   });
-  // Add horizontal lines at band boundaries
   var boundaryVals=isCape?[15,20,25,30]:[12,15,20,25];
   boundaryVals.forEach(function(v,idx){
     annotations['line'+idx]={type:'line',yScaleID:'yPE',yMin:v,yMax:v,borderColor:'rgba(255,255,255,0.06)',borderWidth:1,borderDash:[4,4],drawTime:'beforeDatasetsDraw'};
@@ -309,16 +334,16 @@ function renderChart(){
   var chartData={
     labels:dates,
     datasets:[
-      {label:'S&P 500',data:sp500,borderColor:'rgba(59,130,246,0.8)',backgroundColor:'rgba(59,130,246,0.05)',fill:true,pointRadius:0,borderWidth:1.5,tension:0.1,yAxisID:'y',order:2},
-      {label:peLabel,data:peVals,borderColor:peColor,backgroundColor:'transparent',fill:false,pointRadius:0,borderWidth:2,tension:0.1,yAxisID:'yPE',order:1}
+      {label:'SPY',data:spyPrices,borderColor:'rgba(59,130,246,0.8)',backgroundColor:'rgba(59,130,246,0.05)',fill:true,pointRadius:0,borderWidth:1.5,tension:0.1,yAxisID:'y',order:2},
+      {label:peLabel,data:peVals,borderColor:peColor,backgroundColor:'transparent',fill:false,pointRadius:0,borderWidth:2,tension:0.1,yAxisID:'yPE',order:1,spanGaps:false}
     ]
   };
 
   var opts={
     responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
     scales:{
-      x:{type:'category',ticks:{maxTicksLimit:10,font:{size:10},color:'#555'},grid:{display:false}},
-      y:{position:'left',title:{display:true,text:'S&P 500',color:'#555',font:{size:10}},ticks:{font:{size:10,family:'JetBrains Mono'},color:'#555',callback:function(v){return v>=1000?(v/1000).toFixed(0)+'K':v;}},grid:{color:'rgba(255,255,255,0.04)'}},
+      x:{type:'category',ticks:{maxTicksLimit:10,font:{size:10},color:'#555',callback:function(v,i){var lbl=this.getLabelForValue(i);return lbl?lbl.slice(0,7):'';}},grid:{display:false}},
+      y:{position:'left',title:{display:true,text:'SPY',color:'#555',font:{size:10}},ticks:{font:{size:10,family:'JetBrains Mono'},color:'#555',callback:function(v){return'$'+v.toLocaleString();}},grid:{color:'rgba(255,255,255,0.04)'}},
       yPE:{position:'right',title:{display:true,text:peLabel,color:isCape?'#818cf8':'#fbbf24',font:{size:10}},ticks:{font:{size:10,family:'JetBrains Mono'},color:isCape?'#818cf8':'#fbbf24'},grid:{display:false},min:isCape?0:0,suggestedMax:isCape?50:45}
     },
     plugins:{
@@ -328,8 +353,9 @@ function renderChart(){
         callbacks:{
           title:function(ctx){return ctx[0].label;},
           label:function(ctx){
-            if(ctx.datasetIndex===0)return'S&P 500: '+ctx.parsed.y.toLocaleString();
-            return peLabel+': '+ctx.parsed.y.toFixed(1);
+            if(ctx.datasetIndex===0)return'SPY: $'+ctx.parsed.y.toLocaleString();
+            if(ctx.parsed.y!==null)return peLabel+': '+ctx.parsed.y.toFixed(1);
+            return'';
           }
         }
       }
