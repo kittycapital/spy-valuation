@@ -210,6 +210,89 @@ def parse_shiller_csv(filepath):
     return data
 
 
+def fetch_multpl_data():
+    """
+    Scrape recent CAPE and trailing P/E from multpl.com
+    to supplement Shiller data which may lag by months.
+    """
+    import re
+
+    cape_data = {}
+    pe_data = {}
+
+    urls = [
+        ("https://www.multpl.com/shiller-pe/table/by-month", "cape"),
+        ("https://www.multpl.com/s-p-500-pe-ratio/table/by-month", "pe"),
+    ]
+
+    months_map = {
+        "Jan": "01", "Feb": "02", "Mar": "03", "Apr": "04",
+        "May": "05", "Jun": "06", "Jul": "07", "Aug": "08",
+        "Sep": "09", "Oct": "10", "Nov": "11", "Dec": "12"
+    }
+
+    for url, metric in urls:
+        print(f"  Fetching {metric} from multpl.com...")
+        try:
+            req = Request(url, headers={
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+            })
+            resp = urlopen(req, timeout=15)
+            html = resp.read().decode("utf-8", errors="ignore")
+
+            rows = re.findall(
+                r'<tr[^>]*>\s*<td[^>]*>([A-Z][a-z]{2}\s+\d{1,2},\s*\d{4})</td>\s*<td[^>]*>([\d.]+)</td>',
+                html, re.IGNORECASE
+            )
+
+            target = cape_data if metric == "cape" else pe_data
+            for date_str, val_str in rows:
+                try:
+                    parts = date_str.replace(",", "").split()
+                    mon = months_map.get(parts[0])
+                    year = parts[2] if len(parts) >= 3 else parts[1]
+                    if mon and year:
+                        target[f"{year}-{mon}"] = float(val_str)
+                except (ValueError, IndexError):
+                    continue
+
+            print(f"    Got {len(target)} months")
+        except Exception as e:
+            print(f"    Failed: {e}")
+
+    return cape_data, pe_data
+
+
+def merge_multpl_into_shiller(shiller_data, cape_data, pe_data):
+    """Merge multpl.com data into shiller data, filling gaps."""
+    existing_dates = {e["date"] for e in shiller_data}
+    all_new_dates = sorted((set(cape_data.keys()) | set(pe_data.keys())) - existing_dates)
+
+    added = 0
+    for d in all_new_dates:
+        if d < "1900":
+            continue
+        shiller_data.append({
+            "date": d, "sp500": None, "earnings": None,
+            "cape": round(cape_data[d], 2) if d in cape_data else None,
+            "trailing_pe": round(pe_data[d], 2) if d in pe_data else None,
+        })
+        added += 1
+
+    # Fill missing values in existing entries
+    for entry in shiller_data:
+        d = entry["date"]
+        if entry["cape"] is None and d in cape_data:
+            entry["cape"] = round(cape_data[d], 2)
+        if entry["trailing_pe"] is None and d in pe_data:
+            entry["trailing_pe"] = round(pe_data[d], 2)
+
+    shiller_data.sort(key=lambda x: x["date"])
+    if added > 0:
+        print(f"  Added {added} new months from multpl.com")
+    return shiller_data
+
+
 def load_spy_csv():
     """Load SPY daily prices from CSV."""
     csv_path = DATA_DIR / "SPY.csv"
@@ -446,6 +529,12 @@ def run_full():
 
     save_shiller_csv(shiller_data)
 
+    # 1b. Supplement with multpl.com for recent months
+    print("\n=== Fetching Recent P/E Data from multpl.com ===")
+    cape_data, pe_data = fetch_multpl_data()
+    if cape_data or pe_data:
+        shiller_data = merge_multpl_into_shiller(shiller_data, cape_data, pe_data)
+
     # 2. Load SPY prices
     print("\n=== Loading SPY Prices ===")
     spy_daily = load_spy_csv()
@@ -463,7 +552,7 @@ def run_full():
 
 
 def run_update():
-    """Daily update: just add latest SPY price."""
+    """Daily update: add latest SPY price + refresh P/E from multpl.com."""
     data_path = DATA_DIR / "spy_valuation.json"
     if not data_path.exists():
         print("No existing data. Run --full first.")
@@ -479,6 +568,52 @@ def run_update():
         spy_sorted = sorted(chart_data["spy_daily"].keys())
         chart_data["summary"]["latest_spy"] = chart_data["spy_daily"][spy_sorted[-1]]
         chart_data["summary"]["latest_spy_date"] = spy_sorted[-1]
+
+    # Refresh P/E data from multpl.com
+    cape_data, pe_data = fetch_multpl_data()
+    if cape_data or pe_data:
+        shiller = chart_data.get("shiller", [])
+        existing_dates = {e["date"] for e in shiller}
+
+        # Add new months
+        for d in sorted((set(cape_data.keys()) | set(pe_data.keys())) - existing_dates):
+            if d < "1900":
+                continue
+            shiller.append({
+                "date": d, "sp500": None, "earnings": None,
+                "cape": round(cape_data[d], 2) if d in cape_data else None,
+                "trailing_pe": round(pe_data[d], 2) if d in pe_data else None,
+            })
+
+        # Fill missing in existing
+        for entry in shiller:
+            d = entry["date"]
+            if entry.get("cape") is None and d in cape_data:
+                entry["cape"] = round(cape_data[d], 2)
+            if entry.get("trailing_pe") is None and d in pe_data:
+                entry["trailing_pe"] = round(pe_data[d], 2)
+
+        shiller.sort(key=lambda x: x["date"])
+        chart_data["shiller"] = shiller
+
+        # Update summary with latest values
+        all_capes = [e["cape"] for e in shiller if e.get("cape") is not None]
+        all_pes = [e["trailing_pe"] for e in shiller if e.get("trailing_pe") is not None]
+
+        for e in reversed(shiller):
+            if e.get("cape") is not None:
+                chart_data["summary"]["latest_cape"] = e["cape"]
+                chart_data["summary"]["latest_cape_date"] = e["date"]
+                below = sum(1 for v in all_capes if v <= e["cape"])
+                chart_data["summary"]["cape_percentile"] = round(below / len(all_capes) * 100, 1)
+                break
+        for e in reversed(shiller):
+            if e.get("trailing_pe") is not None:
+                chart_data["summary"]["latest_pe"] = e["trailing_pe"]
+                chart_data["summary"]["latest_pe_date"] = e["date"]
+                below = sum(1 for v in all_pes if v <= e["trailing_pe"])
+                chart_data["summary"]["pe_percentile"] = round(below / len(all_pes) * 100, 1)
+                break
 
     chart_data["metadata"]["generated_at"] = datetime.now(timezone.utc).isoformat()
     chart_data["metadata"]["mode"] = "update"
