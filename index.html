@@ -20,7 +20,7 @@
 .summary-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:var(--hv-space-lg)}.summary-card{background:var(--hv-bg-card);border:1px solid var(--hv-border);border-radius:var(--hv-radius-lg);padding:var(--hv-space-lg)}.summary-label{font-size:.72rem;color:var(--hv-text-tertiary);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;font-weight:500}.summary-value{font-family:var(--hv-font-mono);font-size:1.6rem;font-weight:700;line-height:1.2}.summary-sub{font-family:var(--hv-font-mono);font-size:.75rem;color:var(--hv-text-muted);margin-top:4px}
 .filter-tabs{display:flex;gap:4px;background:var(--hv-bg-card);border:1px solid var(--hv-border);border-radius:12px;padding:4px;max-width:400px;margin-left:auto;margin-right:auto;margin-bottom:var(--hv-space-lg)}.filter-tab{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:10px 8px;border-radius:9px;border:none;background:transparent;color:var(--hv-text-secondary);font-family:var(--hv-font-body);font-size:.82rem;font-weight:500;cursor:pointer;transition:all .2s ease;-webkit-tap-highlight-color:transparent}.filter-tab:hover{color:var(--hv-text-primary);background:rgba(255,255,255,.03)}.filter-tab.active{background:var(--hv-bg-elevated);color:var(--hv-text-primary);font-weight:600}
 .tf-tabs{display:flex;gap:3px;background:var(--hv-bg-base);border-radius:8px;padding:3px}.tf-tab{padding:5px 12px;border-radius:6px;border:none;background:transparent;color:var(--hv-text-muted);font-family:var(--hv-font-body);font-size:.72rem;font-weight:500;cursor:pointer;transition:all .15s ease}.tf-tab:hover{color:var(--hv-text-secondary)}.tf-tab.active{background:var(--hv-bg-elevated);color:var(--hv-text-primary);font-weight:600}
-.chart-wrap{position:relative;padding:8px 16px;overflow:hidden}.chart-wrap canvas{width:100%!important}.chart-wrap--top{height:380px}.chart-wrap--bottom{height:350px}
+.chart-wrap{position:relative;padding:8px 16px;overflow:hidden}.chart-wrap canvas{width:100%!important}.chart-wrap--top{height:420px}.chart-wrap--bottom{height:420px}
 .chart-legend{display:flex;align-items:center;gap:16px;padding:8px var(--hv-space-lg);flex-wrap:wrap}.legend-item{display:flex;align-items:center;gap:6px;font-family:var(--hv-font-mono);font-size:.72rem;color:var(--hv-text-secondary)}.legend-dot{width:8px;height:8px;border-radius:2px}
 
 /* RETURNS TABLE */
@@ -34,8 +34,8 @@
 .toast-wrap{position:fixed;bottom:20px;right:20px;z-index:200;display:flex;flex-direction:column;gap:8px}.toast{background:var(--hv-bg-elevated);border:1px solid var(--hv-border-strong);border-radius:var(--hv-radius-md);padding:10px 18px;font-size:.788rem;color:var(--hv-text-primary);box-shadow:var(--hv-shadow-lg);animation:toastIn .3s ease;border-left:3px solid var(--hv-up)}@keyframes toastIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
 .sample-banner{background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);border-radius:var(--hv-radius-md);padding:10px var(--hv-space-lg);margin-bottom:var(--hv-space-lg);font-size:.78rem;color:var(--cl-pe);display:none}
 .hidden{display:none!important}
-@media(max-width:768px){:root{--hv-header-height:52px}.hv-page{padding:var(--hv-space-md)}.hv-header{padding:0 var(--hv-space-md)}.hv-update-badge{display:none}.hv-header-center h1{font-size:1.1rem}.chart-wrap--top{height:300px}.chart-wrap--bottom{height:280px}.summary-grid{grid-template-columns:repeat(3,1fr);gap:8px}.summary-value{font-size:1.3rem}.returns-grid{grid-template-columns:repeat(5,1fr);gap:4px}.returns-cell{padding:8px 4px}.returns-value{font-size:.9rem}.share-bar{flex-direction:column;gap:10px;align-items:stretch}.share-bar-preview{max-width:100%}.share-bar-buttons{justify-content:center;flex-wrap:wrap}.share-btn span.label-text{display:none}.share-btn{padding:8px 10px}.inline-share .lbl{display:none}}
-@media(max-width:520px){.hv-page{padding:12px 10px 24px}.chart-wrap--top{height:260px}.chart-wrap--bottom{height:250px}.hv-card-head{padding:12px 14px}.summary-card{padding:14px}.summary-value{font-size:1.1rem}.summary-grid{gap:6px}.filter-tabs{max-width:100%}.filter-tab{font-size:.78rem;padding:8px 4px}.returns-grid{grid-template-columns:repeat(5,1fr);gap:3px}.returns-cell{padding:6px 2px}.returns-value{font-size:.78rem}.returns-label{font-size:.6rem}.returns-sub{font-size:.55rem}}
+@media(max-width:768px){:root{--hv-header-height:52px}.hv-page{padding:var(--hv-space-md)}.hv-header{padding:0 var(--hv-space-md)}.hv-update-badge{display:none}.hv-header-center h1{font-size:1.1rem}.chart-wrap--top{height:340px}.chart-wrap--bottom{height:340px}.summary-grid{grid-template-columns:repeat(3,1fr);gap:8px}.summary-value{font-size:1.3rem}.returns-grid{grid-template-columns:repeat(5,1fr);gap:4px}.returns-cell{padding:8px 4px}.returns-value{font-size:.9rem}.share-bar{flex-direction:column;gap:10px;align-items:stretch}.share-bar-preview{max-width:100%}.share-bar-buttons{justify-content:center;flex-wrap:wrap}.share-btn span.label-text{display:none}.share-btn{padding:8px 10px}.inline-share .lbl{display:none}}
+@media(max-width:520px){.hv-page{padding:12px 10px 24px}.chart-wrap--top{height:300px}.chart-wrap--bottom{height:300px}.hv-card-head{padding:12px 14px}.summary-card{padding:14px}.summary-value{font-size:1.1rem}.summary-grid{gap:6px}.filter-tabs{max-width:100%}.filter-tab{font-size:.78rem;padding:8px 4px}.returns-grid{grid-template-columns:repeat(5,1fr);gap:3px}.returns-cell{padding:6px 2px}.returns-value{font-size:.78rem}.returns-label{font-size:.6rem}.returns-sub{font-size:.55rem}}
 </style>
 </head>
 <body>
@@ -324,76 +324,73 @@ function renderChart(){
   var peColor=isCape?'rgba(129,140,248,0.9)':'rgba(251,191,36,0.9)';
   var peLabel=isCape?'Shiller CAPE':'Trailing P/E';
   var bands=isCape?(DATA.cape_bands||[]):(DATA.pe_bands||[]);
+  var PE_DISPLAY_CAP=isCape?55:60;
 
   document.getElementById('chartTitle').textContent=peLabel;
   document.getElementById('legendPeLabel').textContent=isCape?'CAPE':'P/E';
   document.getElementById('legendPeDot').style.background=isCape?'var(--cl-cape)':'var(--cl-pe)';
 
-  // ── Build PE data from shiller (independent timeline) ──
-  var shiller=DATA.shiller||[];
-  var peDates=[],peRaw=[];
-  var PE_DISPLAY_CAP=isCape?55:60; // cap extreme spikes for display
-  for(var i=0;i<shiller.length;i++){
-    var e=shiller[i];
-    var v=e[peKey];
-    if(v!==null&&v!==undefined&&v<=200){
-      peDates.push(e.date);
-      peRaw.push(v);
-    }
-  }
-
-  // ── Build SPY data from spy_daily ──
-  var spyDaily=DATA.spy_daily||{};
-  var allSpyDates=Object.keys(spyDaily).sort();
-
-  // ── Apply range filter ──
+  // ── Range filter cutoff ──
   var cutStr=null;
   if(currentRange>0){
     var cutDate=new Date();
     cutDate.setMonth(cutDate.getMonth()-currentRange);
     cutStr=cutDate.toISOString().slice(0,10);
-    allSpyDates=allSpyDates.filter(function(d){return d>=cutStr;});
   }
 
-  // ── Merge timelines: combine SPY daily + PE monthly into unified X-axis ──
-  // Convert PE monthly dates to approximate daily (use first of month as marker)
-  var peLookup={};
-  for(var i=0;i<peDates.length;i++){peLookup[peDates[i]]=peRaw[i];}
+  // ═══════════════════════════════════════════
+  // SPY CHART (top) - uses spy_daily dates
+  // ═══════════════════════════════════════════
+  var spyDaily=DATA.spy_daily||{};
+  var allSpyDates=Object.keys(spyDaily).sort();
+  if(cutStr) allSpyDates=allSpyDates.filter(function(d){return d>=cutStr;});
 
-  // Build unified date list from SPY daily
-  var step=Math.max(1,Math.floor(allSpyDates.length/600));
-  var dates=[],spyPrices=[],peVals=[];
-  // Track which months have PE data for gap detection
-  var lastPeMonth=null;
-  for(var i=0;i<allSpyDates.length;i+=step){
-    var d=allSpyDates[i];
-    dates.push(d);
-    spyPrices.push(spyDaily[d]);
-    var mk=d.slice(0,7);
-    var peVal=peLookup[mk]!==undefined?peLookup[mk]:null;
-    // Cap extreme values for display (keeps data, just caps visual)
-    if(peVal!==null&&peVal>PE_DISPLAY_CAP) peVal=PE_DISPLAY_CAP;
-    peVals.push(peVal);
+  var spyStep=Math.max(1,Math.floor(allSpyDates.length/600));
+  var spyDates=[],spyPrices=[];
+  for(var i=0;i<allSpyDates.length;i+=spyStep){
+    spyDates.push(allSpyDates[i]);
+    spyPrices.push(spyDaily[allSpyDates[i]]);
   }
-  // Ensure last date is included
-  var lastD=allSpyDates[allSpyDates.length-1];
-  if(dates.length>0&&dates[dates.length-1]!==lastD){
-    dates.push(lastD);
-    spyPrices.push(spyDaily[lastD]);
-    var lm=lastD.slice(0,7);
-    var lv=peLookup[lm]!==undefined?peLookup[lm]:null;
-    if(lv!==null&&lv>PE_DISPLAY_CAP) lv=PE_DISPLAY_CAP;
-    peVals.push(lv);
+  var lastSpyD=allSpyDates[allSpyDates.length-1];
+  if(spyDates.length>0&&spyDates[spyDates.length-1]!==lastSpyD){
+    spyDates.push(lastSpyD);
+    spyPrices.push(spyDaily[lastSpyD]);
+  }
+
+  // ═══════════════════════════════════════════
+  // PE/CAPE CHART (bottom) - uses shiller monthly dates
+  // ═══════════════════════════════════════════
+  var shiller=DATA.shiller||[];
+
+  // Build full monthly timeline with values
+  var peMonths=[],peVals=[];
+  for(var i=0;i<shiller.length;i++){
+    var e=shiller[i];
+    var d=e.date;
+    // Range filter: shiller dates are YYYY-MM, compare with YYYY-MM-01
+    if(cutStr && d+'-01'<cutStr) continue;
+    var v=e[peKey];
+    var hasVal=(v!==null&&v!==undefined&&v>0&&v<=200);
+    peMonths.push(d);
+    if(hasVal){
+      peVals.push(Math.min(v, PE_DISPLAY_CAP));
+    } else {
+      peVals.push(null);
+    }
+  }
+
+  // Trim trailing nulls (don't show empty space at end)
+  while(peVals.length>0 && peVals[peVals.length-1]===null){
+    peVals.pop();
+    peMonths.pop();
   }
 
   // ── Detect gap regions for dashed segment styling ──
-  // Find indices where there's a data gap > 3 months
   var gapIndices=new Set();
   var lastDataIdx=-1;
   for(var i=0;i<peVals.length;i++){
     if(peVals[i]!==null){
-      if(lastDataIdx>=0 && i-lastDataIdx>10){
-        // Mark gap segment indices for dashed rendering
+      if(lastDataIdx>=0 && i-lastDataIdx>3){
         for(var j=lastDataIdx;j<i;j++) gapIndices.add(j);
       }
       lastDataIdx=i;
@@ -419,7 +416,7 @@ function renderChart(){
   if(spyChart){spyChart.destroy();}
   spyChart=new Chart(document.getElementById('spyChart'),{
     type:'line',
-    data:{labels:dates,datasets:[{label:'SPY',data:spyPrices,borderColor:'rgba(59,130,246,0.8)',backgroundColor:'rgba(59,130,246,0.05)',fill:true,pointRadius:0,borderWidth:1.5,tension:0.1}]},
+    data:{labels:spyDates,datasets:[{label:'SPY',data:spyPrices,borderColor:'rgba(59,130,246,0.8)',backgroundColor:'rgba(59,130,246,0.05)',fill:true,pointRadius:0,borderWidth:1.5,tension:0.1}]},
     options:{
       responsive:true,maintainAspectRatio:false,layout:{padding:{top:20,bottom:10,left:5,right:5}},interaction:{mode:'index',intersect:false},
       scales:{
@@ -428,18 +425,18 @@ function renderChart(){
       },
       plugins:{legend:{display:false},tooltip:{...ttBase,callbacks:{title:function(c){return c[0].label;},label:function(c){return'SPY: $'+c.parsed.y.toLocaleString();}}}}
     },
-    plugins:[watermarkPlugin,syncPlugin,crosshairLine]
+    plugins:[watermarkPlugin,crosshairLine]
   });
 
-  // ===== PE CHART (bottom) =====
+  // ===== PE/CAPE CHART (bottom) =====
   if(peChartInst){peChartInst.destroy();}
   peChartInst=new Chart(document.getElementById('peChart'),{
     type:'line',
-    data:{labels:dates,datasets:[{label:peLabel,data:peVals,borderColor:peColor,backgroundColor:'transparent',fill:false,pointRadius:0,borderWidth:2,tension:0.1,
+    data:{labels:peMonths,datasets:[{label:peLabel,data:peVals,borderColor:peColor,backgroundColor:'transparent',fill:false,pointRadius:0,borderWidth:2,tension:0.1,
       spanGaps:true,
       segment:{
         borderColor:function(ctx){
-          return gapIndices.has(ctx.p0DataIndex)?'rgba(255,255,255,0.12)':peColor;
+          return gapIndices.has(ctx.p0DataIndex)?'rgba(255,255,255,0.15)':peColor;
         },
         borderDash:function(ctx){
           return gapIndices.has(ctx.p0DataIndex)?[6,4]:undefined;
@@ -457,13 +454,12 @@ function renderChart(){
       },
       plugins:{legend:{display:false},annotation:{annotations:annotations},tooltip:{...ttBase,callbacks:{title:function(c){return c[0].label;},label:function(c){
         if(c.parsed.y===null) return '';
-        var raw=c.parsed.y;
-        var suffix=(raw>=PE_DISPLAY_CAP&&!isCape)?' (cap)':'';
-        return peLabel+': '+raw.toFixed(1)+suffix;
+        return peLabel+': '+c.parsed.y.toFixed(1);
       }}}}
     },
-    plugins:[crosshairLine,syncPlugin]
+    plugins:[crosshairLine]
   });
+
   // Show/hide gap legend
   var gl=document.getElementById('gapLegend');
   if(gl) gl.style.display=gapIndices.size>0?'flex':'none';
