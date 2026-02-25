@@ -309,7 +309,7 @@ function renderChart(){
   // Build annotation boxes for valuation bands
   var annotations={};
   bands.forEach(function(band,idx){
-    var maxVal=band.max===999?200:band.max;
+    var maxVal=band.max===999?(isCape?55:50):band.max;
     annotations['band'+idx]={type:'box',yScaleID:'yPE',yMin:band.min,yMax:maxVal,backgroundColor:band.color,borderWidth:0,drawTime:'beforeDatasetsDraw'};
   });
   var boundaryVals=isCape?[15,20,25,30]:[12,15,20,25];
@@ -330,7 +330,7 @@ function renderChart(){
     scales:{
       x:{type:'category',ticks:{maxTicksLimit:10,font:{size:10},color:'#555',callback:function(v,i){var lbl=this.getLabelForValue(i);return lbl?lbl.slice(0,7):'';}},grid:{display:false}},
       y:{position:'left',title:{display:true,text:'SPY',color:'#555',font:{size:10}},ticks:{font:{size:10,family:'JetBrains Mono'},color:'#555',callback:function(v){return'$'+v.toLocaleString();}},grid:{color:'rgba(255,255,255,0.04)'}},
-      yPE:{position:'right',title:{display:true,text:peLabel,color:isCape?'#818cf8':'#fbbf24',font:{size:10}},ticks:{font:{size:10,family:'JetBrains Mono'},color:isCape?'#818cf8':'#fbbf24'},grid:{display:false},min:isCape?0:0,suggestedMax:isCape?50:45}
+      yPE:{position:'right',title:{display:true,text:peLabel,color:isCape?'#818cf8':'#fbbf24',font:{size:10}},ticks:{font:{size:10,family:'JetBrains Mono'},color:isCape?'#818cf8':'#fbbf24'},grid:{display:false},min:0,max:isCape?55:50}
     },
     plugins:{
       legend:{display:false},
