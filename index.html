@@ -68,6 +68,7 @@
       <div class="summary-label" style="color:#a5b4fc" id="peLabel">SHILLER CAPE</div>
       <div class="summary-value" style="color:var(--cl-cape)" id="peValue">—</div>
       <div class="summary-sub" id="peDate"></div>
+      <div class="summary-sub" id="peStale" style="color:var(--cl-expensive);display:none"></div>
     </div>
     <div class="summary-card">
       <div class="summary-label" style="color:#fcd34d">역사적 백분위</div>
@@ -116,6 +117,7 @@
       <div class="legend-item"><span class="legend-dot" style="background:rgba(34,197,94,0.3)"></span> 저평가</div>
       <div class="legend-item"><span class="legend-dot" style="background:rgba(245,158,11,0.3)"></span> 고평가</div>
       <div class="legend-item"><span class="legend-dot" style="background:rgba(239,68,68,0.3)"></span> 과열</div>
+      <div class="legend-item" id="gapLegend" style="display:none"><span style="display:inline-block;width:16px;height:0;border-top:2px dashed rgba(255,255,255,0.3);vertical-align:middle;margin-right:4px"></span> 데이터 갭</div>
     </div>
     <div class="chart-wrap chart-wrap--bottom"><canvas id="peChart"></canvas></div>
     <div class="inline-share" id="inlineShare1"></div>
@@ -216,6 +218,7 @@ function init(){
 /* ===== CARDS ===== */
 function updateCards(){
   var s=DATA.summary;
+  var staleEl=document.getElementById('peStale');
   if(currentMetric==='cape'){
     document.getElementById('peLabel').textContent='SHILLER CAPE';
     document.getElementById('peValue').textContent=s.latest_cape!==null?s.latest_cape.toFixed(1):'—';
@@ -224,6 +227,16 @@ function updateCards(){
     document.getElementById('pctlMarker').style.left=(s.cape_percentile||50)+'%';
     document.getElementById('peValue').style.color='var(--cl-cape)';
     document.getElementById('peLabel').style.color='#a5b4fc';
+    // Show stale warning if CAPE date is old (>6 months)
+    if(s.latest_cape_date){
+      var capeParts=s.latest_cape_date.split('-');
+      var capeDate=new Date(parseInt(capeParts[0]),parseInt(capeParts[1])-1);
+      var monthsAgo=Math.round((new Date()-capeDate)/(30*24*3600*1000));
+      if(monthsAgo>6){
+        staleEl.textContent='⚠ Shiller 데이터 '+monthsAgo+'개월 전';
+        staleEl.style.display='block';
+      } else {staleEl.style.display='none';}
+    }
   } else {
     document.getElementById('peLabel').textContent='TRAILING P/E';
     document.getElementById('peValue').textContent=s.latest_pe!==null?s.latest_pe.toFixed(1):'—';
@@ -232,6 +245,7 @@ function updateCards(){
     document.getElementById('pctlMarker').style.left=(s.pe_percentile||50)+'%';
     document.getElementById('peValue').style.color='var(--cl-pe)';
     document.getElementById('peLabel').style.color='#fcd34d';
+    staleEl.style.display='none';
   }
   // Pctl color
   var pctl=currentMetric==='cape'?s.cape_percentile:s.pe_percentile;
@@ -315,50 +329,82 @@ function renderChart(){
   document.getElementById('legendPeLabel').textContent=isCape?'CAPE':'P/E';
   document.getElementById('legendPeDot').style.background=isCape?'var(--cl-cape)':'var(--cl-pe)';
 
-  // Build P/E lookup from shiller monthly data (filter bad values > 200)
-  var peLookup={};
+  // ── Build PE data from shiller (independent timeline) ──
   var shiller=DATA.shiller||[];
+  var peDates=[],peRaw=[];
+  var PE_DISPLAY_CAP=isCape?55:60; // cap extreme spikes for display
   for(var i=0;i<shiller.length;i++){
     var e=shiller[i];
-    if(e[peKey]!==null&&e[peKey]!==undefined&&e[peKey]<=200){
-      peLookup[e.date]=e[peKey];
+    var v=e[peKey];
+    if(v!==null&&v!==undefined&&v<=200){
+      peDates.push(e.date);
+      peRaw.push(v);
     }
   }
 
-  // Use SPY daily as main timeline
+  // ── Build SPY data from spy_daily ──
   var spyDaily=DATA.spy_daily||{};
-  var allDates=Object.keys(spyDaily).sort();
+  var allSpyDates=Object.keys(spyDaily).sort();
 
-  // Apply range filter (months from end)
+  // ── Apply range filter ──
+  var cutStr=null;
   if(currentRange>0){
     var cutDate=new Date();
     cutDate.setMonth(cutDate.getMonth()-currentRange);
-    var cutStr=cutDate.toISOString().slice(0,10);
-    allDates=allDates.filter(function(d){return d>=cutStr;});
+    cutStr=cutDate.toISOString().slice(0,10);
+    allSpyDates=allSpyDates.filter(function(d){return d>=cutStr;});
   }
 
-  // Downsample for performance (max ~600 points)
-  var step=Math.max(1,Math.floor(allDates.length/600));
+  // ── Merge timelines: combine SPY daily + PE monthly into unified X-axis ──
+  // Convert PE monthly dates to approximate daily (use first of month as marker)
+  var peLookup={};
+  for(var i=0;i<peDates.length;i++){peLookup[peDates[i]]=peRaw[i];}
+
+  // Build unified date list from SPY daily
+  var step=Math.max(1,Math.floor(allSpyDates.length/600));
   var dates=[],spyPrices=[],peVals=[];
-  for(var i=0;i<allDates.length;i+=step){
-    var d=allDates[i];
+  // Track which months have PE data for gap detection
+  var lastPeMonth=null;
+  for(var i=0;i<allSpyDates.length;i+=step){
+    var d=allSpyDates[i];
     dates.push(d);
     spyPrices.push(spyDaily[d]);
-    var monthKey=d.slice(0,7);
-    peVals.push(peLookup[monthKey]!==undefined?peLookup[monthKey]:null);
+    var mk=d.slice(0,7);
+    var peVal=peLookup[mk]!==undefined?peLookup[mk]:null;
+    // Cap extreme values for display (keeps data, just caps visual)
+    if(peVal!==null&&peVal>PE_DISPLAY_CAP) peVal=PE_DISPLAY_CAP;
+    peVals.push(peVal);
   }
-  var lastD=allDates[allDates.length-1];
-  if(dates[dates.length-1]!==lastD){
+  // Ensure last date is included
+  var lastD=allSpyDates[allSpyDates.length-1];
+  if(dates.length>0&&dates[dates.length-1]!==lastD){
     dates.push(lastD);
     spyPrices.push(spyDaily[lastD]);
     var lm=lastD.slice(0,7);
-    peVals.push(peLookup[lm]!==undefined?peLookup[lm]:null);
+    var lv=peLookup[lm]!==undefined?peLookup[lm]:null;
+    if(lv!==null&&lv>PE_DISPLAY_CAP) lv=PE_DISPLAY_CAP;
+    peVals.push(lv);
   }
 
-  // Build annotation boxes for valuation bands (PE chart only)
+  // ── Detect gap regions for dashed segment styling ──
+  // Find indices where there's a data gap > 3 months
+  var gapIndices=new Set();
+  var lastDataIdx=-1;
+  for(var i=0;i<peVals.length;i++){
+    if(peVals[i]!==null){
+      if(lastDataIdx>=0 && i-lastDataIdx>10){
+        // Mark gap segment indices for dashed rendering
+        for(var j=lastDataIdx;j<i;j++) gapIndices.add(j);
+      }
+      lastDataIdx=i;
+    }
+  }
+
+  // ── Build annotation boxes for valuation bands ──
+  var yMax=isCape?55:PE_DISPLAY_CAP;
   var annotations={};
   bands.forEach(function(band,idx){
-    var maxVal=band.max===999?(isCape?55:50):band.max;
+    var maxVal=band.max===999?yMax:Math.min(band.max,yMax);
     annotations['band'+idx]={type:'box',yScaleID:'y',yMin:band.min,yMax:maxVal,backgroundColor:band.color,borderWidth:0,drawTime:'beforeDatasetsDraw'};
   });
   var boundaryVals=isCape?[15,20,25,30]:[12,15,20,25];
@@ -389,17 +435,38 @@ function renderChart(){
   if(peChartInst){peChartInst.destroy();}
   peChartInst=new Chart(document.getElementById('peChart'),{
     type:'line',
-    data:{labels:dates,datasets:[{label:peLabel,data:peVals,borderColor:peColor,backgroundColor:'transparent',fill:false,pointRadius:0,borderWidth:2,tension:0.1,spanGaps:false}]},
+    data:{labels:dates,datasets:[{label:peLabel,data:peVals,borderColor:peColor,backgroundColor:'transparent',fill:false,pointRadius:0,borderWidth:2,tension:0.1,
+      spanGaps:true,
+      segment:{
+        borderColor:function(ctx){
+          return gapIndices.has(ctx.p0DataIndex)?'rgba(255,255,255,0.12)':peColor;
+        },
+        borderDash:function(ctx){
+          return gapIndices.has(ctx.p0DataIndex)?[6,4]:undefined;
+        },
+        borderWidth:function(ctx){
+          return gapIndices.has(ctx.p0DataIndex)?1:2;
+        }
+      }
+    }]},
     options:{
       responsive:true,maintainAspectRatio:false,layout:{padding:{top:20,bottom:10,left:5,right:5}},interaction:{mode:'index',intersect:false},
       scales:{
         x:{type:'category',ticks:{maxTicksLimit:10,font:{size:10},color:'#555',callback:xTickCb},grid:{display:false}},
-        y:{position:'right',ticks:{font:{size:10,family:'JetBrains Mono'},color:isCape?'#818cf8':'#fbbf24'},grid:{color:'rgba(255,255,255,0.04)'},min:0,max:isCape?55:50}
+        y:{position:'right',ticks:{font:{size:10,family:'JetBrains Mono'},color:isCape?'#818cf8':'#fbbf24'},grid:{color:'rgba(255,255,255,0.04)'},min:0,max:yMax}
       },
-      plugins:{legend:{display:false},annotation:{annotations:annotations},tooltip:{...ttBase,callbacks:{title:function(c){return c[0].label;},label:function(c){return c.parsed.y!==null?peLabel+': '+c.parsed.y.toFixed(1):'';}}}}
+      plugins:{legend:{display:false},annotation:{annotations:annotations},tooltip:{...ttBase,callbacks:{title:function(c){return c[0].label;},label:function(c){
+        if(c.parsed.y===null) return '';
+        var raw=c.parsed.y;
+        var suffix=(raw>=PE_DISPLAY_CAP&&!isCape)?' (cap)':'';
+        return peLabel+': '+raw.toFixed(1)+suffix;
+      }}}}
     },
     plugins:[crosshairLine,syncPlugin]
   });
+  // Show/hide gap legend
+  var gl=document.getElementById('gapLegend');
+  if(gl) gl.style.display=gapIndices.size>0?'flex':'none';
 }
 
 /* ===== RETURNS TABLE ===== */
