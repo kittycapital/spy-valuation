@@ -240,10 +240,19 @@ def fetch_multpl_data():
             resp = urlopen(req, timeout=15)
             html = resp.read().decode("utf-8", errors="ignore")
 
+            # Primary regex: handle † symbol, &dagger;, whitespace before values
             rows = re.findall(
-                r'<tr[^>]*>\s*<td[^>]*>([A-Z][a-z]{2}\s+\d{1,2},\s*\d{4})</td>\s*<td[^>]*>([\d.]+)</td>',
-                html, re.IGNORECASE
+                r'<tr[^>]*>\s*<td[^>]*>([A-Z][a-z]{2}\s+\d{1,2},\s*\d{4})</td>\s*<td[^>]*>[^\d]*([\d.]+)</td>',
+                html, re.IGNORECASE | re.DOTALL
             )
+
+            # Fallback: looser pattern if primary fails
+            if not rows:
+                print(f"    Primary regex failed, trying fallback...")
+                rows = re.findall(
+                    r'([A-Z][a-z]{2}\s+\d{1,2},\s*\d{4})\s*</td>\s*<td[^>]*>[^\d]*([\d.]+)',
+                    html, re.IGNORECASE | re.DOTALL
+                )
 
             target = cape_data if metric == "cape" else pe_data
             for date_str, val_str in rows:
@@ -256,7 +265,7 @@ def fetch_multpl_data():
                 except (ValueError, IndexError):
                     continue
 
-            print(f"    Got {len(target)} months")
+            print(f"    Got {len(target)} months for {metric}")
         except Exception as e:
             print(f"    Failed: {e}")
 
@@ -576,11 +585,18 @@ def run_update():
         existing_dates = {e["date"] for e in shiller}
 
         # Add new months
+        spy_daily = chart_data.get("spy_daily", {})
         for d in sorted((set(cape_data.keys()) | set(pe_data.keys())) - existing_dates):
             if d < "1900":
                 continue
+            # Try to fill sp500 price from spy_daily (use last day of month)
+            sp500_price = None
+            month_prefix = d  # e.g. "2024-06"
+            month_days = sorted([k for k in spy_daily if k.startswith(month_prefix)])
+            if month_days:
+                sp500_price = spy_daily[month_days[-1]]
             shiller.append({
-                "date": d, "sp500": None, "earnings": None,
+                "date": d, "sp500": sp500_price, "earnings": None,
                 "cape": round(cape_data[d], 2) if d in cape_data else None,
                 "trailing_pe": round(pe_data[d], 2) if d in pe_data else None,
             })
