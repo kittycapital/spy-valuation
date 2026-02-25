@@ -231,6 +231,9 @@ def fetch_multpl_data():
         "Sep": "09", "Oct": "10", "Nov": "11", "Dec": "12"
     }
 
+    # Reasonable value ranges for validation
+    VALID_RANGE = {"cape": (5, 200), "pe": (3, 200)}
+
     for url, metric in urls:
         print(f"  Fetching {metric} from multpl.com...")
         try:
@@ -240,31 +243,50 @@ def fetch_multpl_data():
             resp = urlopen(req, timeout=15)
             html = resp.read().decode("utf-8", errors="ignore")
 
-            # Primary regex: handle † symbol, &dagger;, whitespace before values
-            rows = re.findall(
-                r'<tr[^>]*>\s*<td[^>]*>([A-Z][a-z]{2}\s+\d{1,2},\s*\d{4})</td>\s*<td[^>]*>[^\d]*([\d.]+)</td>',
-                html, re.IGNORECASE | re.DOTALL
-            )
-
-            # Fallback: looser pattern if primary fails
-            if not rows:
-                print(f"    Primary regex failed, trying fallback...")
-                rows = re.findall(
-                    r'([A-Z][a-z]{2}\s+\d{1,2},\s*\d{4})\s*</td>\s*<td[^>]*>[^\d]*([\d.]+)',
-                    html, re.IGNORECASE | re.DOTALL
-                )
+            # Strategy: find each <tr> and extract the two <td> cells
+            # This is more robust than trying to match across cells
+            tr_blocks = re.findall(r'<tr[^>]*>(.*?)</tr>', html, re.DOTALL | re.IGNORECASE)
 
             target = cape_data if metric == "cape" else pe_data
-            for date_str, val_str in rows:
-                try:
-                    parts = date_str.replace(",", "").split()
-                    mon = months_map.get(parts[0])
-                    year = parts[2] if len(parts) >= 3 else parts[1]
-                    if mon and year:
-                        target[f"{year}-{mon}"] = float(val_str)
-                except (ValueError, IndexError):
+            vmin, vmax = VALID_RANGE[metric]
+            skipped = 0
+
+            for tr in tr_blocks:
+                # Extract all <td> contents
+                tds = re.findall(r'<td[^>]*>(.*?)</td>', tr, re.DOTALL | re.IGNORECASE)
+                if len(tds) < 2:
                     continue
 
+                # First td: date like "Jan 1, 2025" or with links
+                date_text = re.sub(r'<[^>]+>', '', tds[0]).strip()
+                # Second td: value like "38.25" or "†38.25" or with HTML entities
+                val_text = re.sub(r'<[^>]+>', '', tds[1]).strip()
+
+                # Parse date
+                date_match = re.match(r'([A-Z][a-z]{2})\s+\d{1,2},?\s*(\d{4})', date_text)
+                if not date_match:
+                    continue
+                mon = months_map.get(date_match.group(1))
+                year = date_match.group(2)
+                if not mon or not year:
+                    continue
+
+                # Parse value: strip non-numeric prefix (†, &dagger;, spaces, etc.)
+                val_match = re.search(r'(\d+\.?\d*)', val_text)
+                if not val_match:
+                    continue
+
+                value = float(val_match.group(1))
+
+                # Validation: reject values outside reasonable range
+                if value < vmin or value > vmax:
+                    skipped += 1
+                    continue
+
+                target[f"{year}-{mon}"] = value
+
+            if skipped:
+                print(f"    Skipped {skipped} invalid values for {metric}")
             print(f"    Got {len(target)} months for {metric}")
         except Exception as e:
             print(f"    Failed: {e}")
@@ -281,10 +303,17 @@ def merge_multpl_into_shiller(shiller_data, cape_data, pe_data):
     for d in all_new_dates:
         if d < "1900":
             continue
+        cape_val = round(cape_data[d], 2) if d in cape_data else None
+        pe_val = round(pe_data[d], 2) if d in pe_data else None
+        # Extra validation
+        if cape_val and cape_val > 200:
+            cape_val = None
+        if pe_val and pe_val > 200:
+            pe_val = None
         shiller_data.append({
             "date": d, "sp500": None, "earnings": None,
-            "cape": round(cape_data[d], 2) if d in cape_data else None,
-            "trailing_pe": round(pe_data[d], 2) if d in pe_data else None,
+            "cape": cape_val,
+            "trailing_pe": pe_val,
         })
         added += 1
 
@@ -292,9 +321,18 @@ def merge_multpl_into_shiller(shiller_data, cape_data, pe_data):
     for entry in shiller_data:
         d = entry["date"]
         if entry["cape"] is None and d in cape_data:
-            entry["cape"] = round(cape_data[d], 2)
+            val = round(cape_data[d], 2)
+            if val <= 200:
+                entry["cape"] = val
         if entry["trailing_pe"] is None and d in pe_data:
-            entry["trailing_pe"] = round(pe_data[d], 2)
+            val = round(pe_data[d], 2)
+            if val <= 200:
+                entry["trailing_pe"] = val
+        # Clean any existing bad values
+        if entry.get("cape") and entry["cape"] > 200:
+            entry["cape"] = None
+        if entry.get("trailing_pe") and entry["trailing_pe"] > 200:
+            entry["trailing_pe"] = None
 
     shiller_data.sort(key=lambda x: x["date"])
     if added > 0:
@@ -331,7 +369,10 @@ def load_spy_csv():
 
 
 def fetch_spy_today():
-    """Fetch latest SPY price from Yahoo Finance."""
+    """Fetch latest SPY prices from Yahoo Finance (multiple API endpoints)."""
+    prices = {}
+
+    # Method 1: Yahoo v8 chart API
     print("  Fetching latest SPY price from Yahoo Finance...")
     try:
         url = "https://query1.finance.yahoo.com/v8/finance/chart/SPY?range=5d&interval=1d"
@@ -343,17 +384,90 @@ def fetch_spy_today():
         timestamps = result["timestamp"]
         closes = result["indicators"]["quote"][0]["close"]
 
-        prices = {}
         for ts, close in zip(timestamps, closes):
             if close is not None:
                 date_str = datetime.fromtimestamp(ts, tz=timezone.utc).strftime("%Y-%m-%d")
                 prices[date_str] = round(close, 2)
 
-        print(f"  Got {len(prices)} recent SPY prices")
-        return prices
+        print(f"  Got {len(prices)} recent SPY prices (v8 API)")
     except Exception as e:
-        print(f"  Failed to fetch SPY: {e}")
-        return {}
+        print(f"  Yahoo v8 failed: {e}")
+
+    # Method 2: Yahoo v7 download API (fallback)
+    if not prices:
+        try:
+            print("  Trying Yahoo v7 download API...")
+            end_ts = int(time.time())
+            start_ts = end_ts - 7 * 86400
+            url = f"https://query1.finance.yahoo.com/v7/finance/download/SPY?period1={start_ts}&period2={end_ts}&interval=1d&events=history"
+            req = Request(url, headers={"User-Agent": "Mozilla/5.0"})
+            resp = urlopen(req, timeout=15)
+            csv_text = resp.read().decode("utf-8")
+            for line in csv_text.strip().split("\n")[1:]:
+                parts = line.split(",")
+                if len(parts) >= 5 and parts[4] != "null":
+                    try:
+                        prices[parts[0]] = round(float(parts[4]), 2)
+                    except ValueError:
+                        continue
+            print(f"  Got {len(prices)} recent SPY prices (v7 download)")
+        except Exception as e:
+            print(f"  Yahoo v7 failed: {e}")
+
+    # Method 3: Yahoo v10 quote API (single latest price)
+    if not prices:
+        try:
+            print("  Trying Yahoo v10 quote API...")
+            url = "https://query2.finance.yahoo.com/v10/finance/quoteSummary/SPY?modules=price"
+            req = Request(url, headers={"User-Agent": "Mozilla/5.0"})
+            resp = urlopen(req, timeout=15)
+            data = json.loads(resp.read())
+            price_data = data["quoteSummary"]["result"][0]["price"]
+            close = price_data.get("regularMarketPrice", {}).get("raw")
+            mkt_time = price_data.get("regularMarketTime")
+            if close and mkt_time:
+                date_str = datetime.fromtimestamp(mkt_time, tz=timezone.utc).strftime("%Y-%m-%d")
+                prices[date_str] = round(close, 2)
+                print(f"  Got latest SPY price: ${close:.2f} on {date_str}")
+        except Exception as e:
+            print(f"  Yahoo v10 failed: {e}")
+
+    if not prices:
+        print("  WARNING: All Yahoo Finance APIs failed. SPY prices not updated.")
+
+    return prices
+
+
+def update_spy_csv(new_prices):
+    """Append new dates to SPY.csv if not already present."""
+    csv_path = DATA_DIR / "SPY.csv"
+    if not csv_path.exists():
+        print("  SPY.csv not found, skipping CSV update")
+        return
+
+    # Read existing dates
+    existing_dates = set()
+    with open(csv_path, "r") as f:
+        for i, line in enumerate(f):
+            if i == 0:
+                continue
+            parts = line.strip().split(",")
+            if parts:
+                existing_dates.add(parts[0])
+
+    # Append new dates
+    added = 0
+    with open(csv_path, "a") as f:
+        for date_str in sorted(new_prices.keys()):
+            if date_str not in existing_dates:
+                price = new_prices[date_str]
+                f.write(f"{date_str},{price},{price},{price},{price},0\n")
+                added += 1
+
+    if added:
+        print(f"  Appended {added} new dates to SPY.csv")
+    else:
+        print(f"  SPY.csv already up to date")
 
 
 def calculate_percentile(value, all_values):
@@ -431,20 +545,20 @@ def calculate_forward_returns(shiller_data, spy_daily):
 def build_chart_data(shiller_data, spy_daily):
     """Build the final JSON data for the dashboard."""
 
-    # All CAPE values for percentile
-    all_capes = [e["cape"] for e in shiller_data if e["cape"] is not None]
-    all_pes = [e["trailing_pe"] for e in shiller_data if e["trailing_pe"] is not None]
+    # All CAPE values for percentile (filter out bad values)
+    all_capes = [e["cape"] for e in shiller_data if e["cape"] is not None and e["cape"] <= 200]
+    all_pes = [e["trailing_pe"] for e in shiller_data if e["trailing_pe"] is not None and e["trailing_pe"] <= 200]
 
-    # Latest values
+    # Latest values (skip bad values > 200)
     latest_shiller = None
     for e in reversed(shiller_data):
-        if e["cape"] is not None:
+        if e["cape"] is not None and e["cape"] <= 200:
             latest_shiller = e
             break
 
     latest_pe_entry = None
     for e in reversed(shiller_data):
-        if e["trailing_pe"] is not None:
+        if e["trailing_pe"] is not None and e["trailing_pe"] <= 200:
             latest_pe_entry = e
             break
 
@@ -490,7 +604,13 @@ def build_chart_data(shiller_data, spy_daily):
     # Trim shiller data to 1900+ for chart (pre-1900 is less relevant)
     for entry in shiller_data:
         if entry["date"] >= "1900":
-            chart_data["shiller"].append(entry)
+            # Clean bad values before adding to chart data
+            clean = dict(entry)
+            if clean.get("cape") and clean["cape"] > 200:
+                clean["cape"] = None
+            if clean.get("trailing_pe") and clean["trailing_pe"] > 200:
+                clean["trailing_pe"] = None
+            chart_data["shiller"].append(clean)
 
     # SPY daily (only keep monthly samples for reasonable JSON size)
     for date_str in sorted(spy_daily.keys()):
@@ -550,6 +670,10 @@ def run_full():
     today_prices = fetch_spy_today()
     spy_daily.update(today_prices)
 
+    # Update SPY.csv with new prices
+    if today_prices:
+        update_spy_csv(today_prices)
+
     # 3. Build and save
     print("\n=== Building Chart Data ===")
     chart_data = build_chart_data(shiller_data, spy_daily)
@@ -577,6 +701,8 @@ def run_update():
         spy_sorted = sorted(chart_data["spy_daily"].keys())
         chart_data["summary"]["latest_spy"] = chart_data["spy_daily"][spy_sorted[-1]]
         chart_data["summary"]["latest_spy_date"] = spy_sorted[-1]
+        # Also update SPY.csv
+        update_spy_csv(today_prices)
 
     # Refresh P/E data from multpl.com
     cape_data, pe_data = fetch_multpl_data()
@@ -595,41 +721,61 @@ def run_update():
             month_days = sorted([k for k in spy_daily if k.startswith(month_prefix)])
             if month_days:
                 sp500_price = spy_daily[month_days[-1]]
+            cape_val = round(cape_data[d], 2) if d in cape_data else None
+            pe_val = round(pe_data[d], 2) if d in pe_data else None
+            if cape_val and cape_val > 200: cape_val = None
+            if pe_val and pe_val > 200: pe_val = None
             shiller.append({
                 "date": d, "sp500": sp500_price, "earnings": None,
-                "cape": round(cape_data[d], 2) if d in cape_data else None,
-                "trailing_pe": round(pe_data[d], 2) if d in pe_data else None,
+                "cape": cape_val, "trailing_pe": pe_val,
             })
 
-        # Fill missing in existing
+        # Fill missing in existing + clean bad values
         for entry in shiller:
             d = entry["date"]
             if entry.get("cape") is None and d in cape_data:
-                entry["cape"] = round(cape_data[d], 2)
+                val = round(cape_data[d], 2)
+                if val <= 200:
+                    entry["cape"] = val
             if entry.get("trailing_pe") is None and d in pe_data:
-                entry["trailing_pe"] = round(pe_data[d], 2)
+                val = round(pe_data[d], 2)
+                if val <= 200:
+                    entry["trailing_pe"] = val
+            # Clean existing bad values
+            if entry.get("cape") and entry["cape"] > 200:
+                entry["cape"] = None
+            if entry.get("trailing_pe") and entry["trailing_pe"] > 200:
+                entry["trailing_pe"] = None
 
         shiller.sort(key=lambda x: x["date"])
         chart_data["shiller"] = shiller
 
-        # Update summary with latest values
-        all_capes = [e["cape"] for e in shiller if e.get("cape") is not None]
-        all_pes = [e["trailing_pe"] for e in shiller if e.get("trailing_pe") is not None]
+        # Update summary with latest values (only valid ones)
+        all_capes = [e["cape"] for e in shiller if e.get("cape") is not None and e["cape"] <= 200]
+        all_pes = [e["trailing_pe"] for e in shiller if e.get("trailing_pe") is not None and e["trailing_pe"] <= 200]
 
         for e in reversed(shiller):
-            if e.get("cape") is not None:
+            if e.get("cape") is not None and e["cape"] <= 200:
                 chart_data["summary"]["latest_cape"] = e["cape"]
                 chart_data["summary"]["latest_cape_date"] = e["date"]
                 below = sum(1 for v in all_capes if v <= e["cape"])
                 chart_data["summary"]["cape_percentile"] = round(below / len(all_capes) * 100, 1)
                 break
         for e in reversed(shiller):
-            if e.get("trailing_pe") is not None:
+            if e.get("trailing_pe") is not None and e["trailing_pe"] <= 200:
                 chart_data["summary"]["latest_pe"] = e["trailing_pe"]
                 chart_data["summary"]["latest_pe_date"] = e["date"]
                 below = sum(1 for v in all_pes if v <= e["trailing_pe"])
                 chart_data["summary"]["pe_percentile"] = round(below / len(all_pes) * 100, 1)
                 break
+
+        # Recalculate median/mean with clean data
+        if all_capes:
+            chart_data["summary"]["cape_median"] = round(sorted(all_capes)[len(all_capes)//2], 1)
+            chart_data["summary"]["cape_mean"] = round(sum(all_capes)/len(all_capes), 1)
+        if all_pes:
+            chart_data["summary"]["pe_median"] = round(sorted(all_pes)[len(all_pes)//2], 1)
+            chart_data["summary"]["pe_mean"] = round(sum(all_pes)/len(all_pes), 1)
 
     chart_data["metadata"]["generated_at"] = datetime.now(timezone.utc).isoformat()
     chart_data["metadata"]["mode"] = "update"
