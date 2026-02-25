@@ -3,6 +3,7 @@ name: Update SPY Valuation
 on:
   schedule:
     - cron: '30 22 * * 1-5'  # Weekdays 22:30 UTC (after market close)
+    - cron: '0 10 * * 0'     # Sunday 10:00 UTC (weekly full rebuild)
   workflow_dispatch:
     inputs:
       mode:
@@ -33,10 +34,23 @@ jobs:
       - name: Install dependencies
         run: pip install openpyxl xlrd
 
-      - name: Run data collection
-        env:
-          MODE: ${{ github.event.inputs.mode || 'auto' }}
+      - name: Determine run mode
+        id: mode
         run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            MODE="${{ github.event.inputs.mode }}"
+          elif [ "$(date -u +%u)" = "7" ]; then
+            # Sunday = full rebuild (Shiller data refresh)
+            MODE="full"
+          else
+            MODE="auto"
+          fi
+          echo "mode=$MODE" >> $GITHUB_OUTPUT
+          echo "Run mode: $MODE"
+
+      - name: Run data collection
+        run: |
+          MODE="${{ steps.mode.outputs.mode }}"
           if [ "$MODE" = "full" ] || [ "$MODE" = "repair" ]; then
             python collect_spy_pe.py --full
           elif [ "$MODE" = "auto" ]; then
@@ -46,11 +60,6 @@ jobs:
               python collect_spy_pe.py --full
             fi
           fi
-
-      - name: Weekly Shiller refresh (Sundays)
-        if: github.event.schedule && contains('0', github.event.schedule)
-        run: python collect_spy_pe.py --full
-        continue-on-error: true
 
       - name: Commit and push
         run: |
