@@ -214,6 +214,7 @@ def fetch_multpl_data():
     """
     Scrape recent CAPE and trailing P/E from multpl.com
     to supplement Shiller data which may lag by months.
+    Uses multiple parsing strategies for robustness.
     """
     import re
 
@@ -238,18 +239,19 @@ def fetch_multpl_data():
         print(f"  Fetching {metric} from multpl.com...")
         try:
             req = Request(url, headers={
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                "Accept": "text/html,application/xhtml+xml",
+                "Accept-Language": "en-US,en;q=0.9",
             })
-            resp = urlopen(req, timeout=15)
+            resp = urlopen(req, timeout=30)
             html = resp.read().decode("utf-8", errors="ignore")
-
-            # Strategy: find each <tr> and extract the two <td> cells
-            # This is more robust than trying to match across cells
-            tr_blocks = re.findall(r'<tr[^>]*>(.*?)</tr>', html, re.DOTALL | re.IGNORECASE)
 
             target = cape_data if metric == "cape" else pe_data
             vmin, vmax = VALID_RANGE[metric]
             skipped = 0
+
+            # Strategy 1: find each <tr> and extract the two <td> cells
+            tr_blocks = re.findall(r'<tr[^>]*>(.*?)</tr>', html, re.DOTALL | re.IGNORECASE)
 
             for tr in tr_blocks:
                 # Extract all <td> contents
@@ -261,13 +263,23 @@ def fetch_multpl_data():
                 date_text = re.sub(r'<[^>]+>', '', tds[0]).strip()
                 # Second td: value like "38.25" or "†38.25" or with HTML entities
                 val_text = re.sub(r'<[^>]+>', '', tds[1]).strip()
+                # Also clean HTML entities
+                val_text = val_text.replace('&dagger;', '').replace('†', '').replace('\xa0', '').strip()
 
-                # Parse date
+                # Parse date - try multiple formats
                 date_match = re.match(r'([A-Z][a-z]{2})\s+\d{1,2},?\s*(\d{4})', date_text)
                 if not date_match:
-                    continue
-                mon = months_map.get(date_match.group(1))
-                year = date_match.group(2)
+                    # Try format: "2025-01-01" or "1, Jan 2025"
+                    date_match2 = re.search(r'(\d{4})-(\d{2})', date_text)
+                    if date_match2:
+                        year = date_match2.group(1)
+                        mon = date_match2.group(2)
+                    else:
+                        continue
+                else:
+                    mon = months_map.get(date_match.group(1))
+                    year = date_match.group(2)
+
                 if not mon or not year:
                     continue
 
@@ -284,6 +296,29 @@ def fetch_multpl_data():
                     continue
 
                 target[f"{year}-{mon}"] = value
+
+            # Strategy 2: if we got very few results, try alternative parsing
+            if len(target) < 12:
+                print(f"    Strategy 1 got only {len(target)} results, trying alternative parsing...")
+                # Try finding the table by id
+                table_match = re.search(r'<table[^>]*id=["\']datatable["\'][^>]*>(.*?)</table>', html, re.DOTALL | re.IGNORECASE)
+                if table_match:
+                    table_html = table_match.group(1)
+                    rows = re.findall(r'<tr[^>]*>(.*?)</tr>', table_html, re.DOTALL | re.IGNORECASE)
+                    for tr in rows:
+                        tds = re.findall(r'<td[^>]*>(.*?)</td>', tr, re.DOTALL | re.IGNORECASE)
+                        if len(tds) >= 2:
+                            date_text = re.sub(r'<[^>]+>', '', tds[0]).strip()
+                            val_text = re.sub(r'<[^>]+>', '', tds[1]).strip().replace('&dagger;', '').replace('†', '').replace('\xa0', '')
+                            date_match = re.match(r'([A-Z][a-z]{2})\s+\d{1,2},?\s*(\d{4})', date_text)
+                            if date_match:
+                                mon = months_map.get(date_match.group(1))
+                                year = date_match.group(2)
+                                val_match = re.search(r'(\d+\.?\d*)', val_text)
+                                if mon and year and val_match:
+                                    value = float(val_match.group(1))
+                                    if vmin <= value <= vmax:
+                                        target[f"{year}-{mon}"] = value
 
             if skipped:
                 print(f"    Skipped {skipped} invalid values for {metric}")
@@ -337,6 +372,61 @@ def merge_multpl_into_shiller(shiller_data, cape_data, pe_data):
     shiller_data.sort(key=lambda x: x["date"])
     if added > 0:
         print(f"  Added {added} new months from multpl.com")
+    return shiller_data
+
+
+def fill_shiller_gaps(shiller_data, spy_daily):
+    """
+    Fill gaps in shiller monthly data with placeholder entries.
+    Uses SPY daily prices to fill sp500 field for missing months.
+    This ensures continuous timeline for charts even when CAPE/PE data is missing.
+    """
+    existing_dates = {e["date"] for e in shiller_data}
+
+    # Find date range
+    all_dates = sorted(existing_dates)
+    if not all_dates:
+        return shiller_data
+
+    start_y, start_m = int(all_dates[0][:4]), int(all_dates[0][5:7])
+    end_y, end_m = int(all_dates[-1][:4]), int(all_dates[-1][5:7])
+
+    # Also check spy_daily for the latest date
+    if spy_daily:
+        latest_spy = sorted(spy_daily.keys())[-1]
+        spy_y, spy_m = int(latest_spy[:4]), int(latest_spy[5:7])
+        if spy_y * 12 + spy_m > end_y * 12 + end_m:
+            end_y, end_m = spy_y, spy_m
+
+    added = 0
+    y, m = start_y, start_m
+    while y * 12 + m <= end_y * 12 + end_m:
+        date_str = f"{y}-{m:02d}"
+        if date_str not in existing_dates and date_str >= "1900-01":
+            # Find SPY price for this month (use last trading day)
+            sp500_price = None
+            month_days = sorted([k for k in spy_daily if k.startswith(date_str)])
+            if month_days:
+                sp500_price = spy_daily[month_days[-1]]
+
+            shiller_data.append({
+                "date": date_str,
+                "sp500": round(sp500_price, 2) if sp500_price else None,
+                "earnings": None,
+                "cape": None,
+                "trailing_pe": None,
+            })
+            added += 1
+
+        m += 1
+        if m > 12:
+            m = 1
+            y += 1
+
+    if added > 0:
+        shiller_data.sort(key=lambda x: x["date"])
+        print(f"  Filled {added} gap months with placeholder entries")
+
     return shiller_data
 
 
@@ -673,6 +763,10 @@ def run_full():
     # Update SPY.csv with new prices
     if today_prices:
         update_spy_csv(today_prices)
+
+    # 2b. Fill gaps in shiller data with SPY prices
+    print("\n=== Filling Data Gaps ===")
+    shiller_data = fill_shiller_gaps(shiller_data, spy_daily)
 
     # 3. Build and save
     print("\n=== Building Chart Data ===")
