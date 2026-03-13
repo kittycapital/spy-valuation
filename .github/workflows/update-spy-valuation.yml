@@ -3,7 +3,7 @@ name: Update SPY Valuation
 on:
   schedule:
     - cron: '30 22 * * 1-5'  # Weekdays 22:30 UTC (after market close)
-    - cron: '0 10 * * 0'     # Sunday 10:00 UTC (weekly full rebuild)
+         # Sunday 10:00 UTC (weekly full rebuild)
   workflow_dispatch:
     inputs:
       mode:
